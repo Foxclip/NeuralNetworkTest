@@ -5,7 +5,7 @@ import random
 POPULATION_SIZE = 2
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
-MAX_MUTATION = 0
+MAX_MUTATION = 1000
 
 last_id = 0
 def increase_last_id():
@@ -124,6 +124,14 @@ generation.sort(key = lambda x: x.fitness, reverse=True)
 #creating new generation
 new_generation = []
 for i in range(POPULATION_SIZE):
+
+	#preserving the best network
+	if i == 0:
+		new_network = crossover(generation[0], generation[0])
+		new_network.parent1 = generation[0].id
+		new_network.parent2 = generation[0].id
+		new_generation.append(new_network)
+		continue
 
 	#choosing parents
 	rand1 = random.random()**CROSSOVER_POWER;
