@@ -28,10 +28,12 @@ class Neuron:
 		output = sigmoid(total)
 		return output
 
-	def mutate(self, mutation_rate):
+	def mutate(self):
 		for i in range(len(self.weights)):
-			self.weights[i] += random.uniform(-mutation_rate, mutation_rate)
-			self.bias += random.uniform(-mutation_rate, mutation_rate)
+			weight_mutation_rate = random.random()**MUTATION_POWER * MAX_MUTATION
+			self.weights[i] += random.uniform(-weight_mutation_rate, weight_mutation_rate)
+		bias_mutation_rate = random.random()**MUTATION_POWER * MAX_MUTATION
+		self.bias += random.uniform(-bias_mutation_rate, bias_mutation_rate)
 			# self.weights[i] = np.clip(self.weights[i], -1.0, 1.0)
 
 class NeuralNetwork:
@@ -56,10 +58,10 @@ class NeuralNetwork:
 		o1_out = self.o1.feedforward([h1_out, h2_out])
 		return o1_out
 
-	def mutate(self, mutation_rate):
-		self.h1.mutate(mutation_rate)
-		self.h2.mutate(mutation_rate)
-		self.o1.mutate(mutation_rate)
+	def mutate(self):
+		self.h1.mutate()
+		self.h2.mutate()
+		self.o1.mutate()
 
 def lists_average(list1, list2):
 	avg_list = []
@@ -96,6 +98,8 @@ for i in range(POPULATION_SIZE):
 
 for iteration in range(ITERATIONS):
 
+	print("Generation " + str(iteration + 1))
+
 	for i in range(POPULATION_SIZE):
 		print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
 		print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
@@ -117,15 +121,16 @@ for iteration in range(ITERATIONS):
 		network_mean_errors.append(mean_error)
 		# print("    Mean error: " + str(mean_error))
 	print()
-	print(network_mean_errors)
+	for i in range(len(network_mean_errors)):
+		print(f"{network_mean_errors[i]:.3f}" + " (" + str(network_mean_errors[i]) + ")")
 	print()
 
 	#calculating fitness
 	for i in range(POPULATION_SIZE):
-		generation[i].fitness = 1.0 if network_mean_errors[i] == 0 else 1.0/network_mean_errors[i]
+		generation[i].fitness = 1.0/network_mean_errors[i]
 
 	#list has to be sorted
-	generation.sort(key = lambda x: x.fitness, reverse=True)
+	generation.sort(key = lambda x: x.fitness, reverse = True)
 
 	#creating new generation
 	new_generation = []
@@ -151,6 +156,10 @@ for iteration in range(ITERATIONS):
 		new_network = crossover(generation[pick1], generation[pick2])
 		new_network.parent1 = generation[pick1].id
 		new_network.parent2 = generation[pick2].id
-		new_network.mutate(random.random()**MUTATION_POWER * MAX_MUTATION)
+		new_network.mutate()
 		new_generation.append(new_network)
 	generation = new_generation
+
+for j in range(len(df.index)):
+	result = generation[0].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+	print(f"{result:.3f}" + " (" + str(result) + ")")
