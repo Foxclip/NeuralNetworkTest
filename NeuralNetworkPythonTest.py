@@ -6,6 +6,7 @@ POPULATION_SIZE = 2
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1000
+ITERATIONS = 100
 
 last_id = 0
 def increase_last_id():
@@ -38,6 +39,8 @@ class NeuralNetwork:
 	def __init__(self):
 		self.id = last_id
 		increase_last_id()
+		self.parent1 = -1
+		self.parent2 = -1
 		self.h1 = Neuron("h1", [np.random.normal(), np.random.normal()], np.random.normal())
 		self.h2 = Neuron("h2", [np.random.normal(), np.random.normal()], np.random.normal())
 		self.o1 = Neuron("o1", [np.random.normal(), np.random.normal()], np.random.normal())
@@ -90,66 +93,63 @@ for i in range(POPULATION_SIZE):
 	new_network = NeuralNetwork()
 	generation.append(new_network)
 
-for i in range(POPULATION_SIZE):
-	print("Network " + str(i))
-	print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
-	print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
-	print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
+for iteration in range(ITERATIONS):
 
-#calculating error
-network_mean_errors = []
-for i in range(POPULATION_SIZE):
-	# print("Network " + str(i))
-	errors = []
-	for j in range(len(df.index)):
-		result = generation[i].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-		gender = 0 if df.loc[j]["Gender"] == "M" else 1
-		error = abs(result - gender)
-		errors.append(error)
-		# print("    " + str(result) + " " + str(error))
-	mean_error = np.mean(errors)
-	network_mean_errors.append(mean_error)
-	# print("    Mean error: " + str(mean_error))
-print()
-print(network_mean_errors)
-print()
+	for i in range(POPULATION_SIZE):
+		print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
+		print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
+		print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
+		print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
 
-#calculating fitness
-for i in range(POPULATION_SIZE):
-	generation[i].fitness = 1.0 if network_mean_errors[i] == 0 else 1.0/network_mean_errors[i]
+	#calculating error
+	network_mean_errors = []
+	for i in range(POPULATION_SIZE):
+		# print("Network " + str(i))
+		errors = []
+		for j in range(len(df.index)):
+			result = generation[i].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+			gender = 0 if df.loc[j]["Gender"] == "M" else 1
+			error = abs(result - gender)
+			errors.append(error)
+			# print("    " + str(result) + " " + str(error))
+		mean_error = np.mean(errors)
+		network_mean_errors.append(mean_error)
+		# print("    Mean error: " + str(mean_error))
+	print()
+	print(network_mean_errors)
+	print()
 
-#list has to be sorted
-generation.sort(key = lambda x: x.fitness, reverse=True)
+	#calculating fitness
+	for i in range(POPULATION_SIZE):
+		generation[i].fitness = 1.0 if network_mean_errors[i] == 0 else 1.0/network_mean_errors[i]
 
-#creating new generation
-new_generation = []
-for i in range(POPULATION_SIZE):
+	#list has to be sorted
+	generation.sort(key = lambda x: x.fitness, reverse=True)
 
-	#preserving the best network
-	if i == 0:
-		new_network = crossover(generation[0], generation[0])
-		new_network.parent1 = generation[0].id
-		new_network.parent2 = generation[0].id
+	#creating new generation
+	new_generation = []
+	for i in range(POPULATION_SIZE):
+
+		#preserving the best network
+		if i == 0:
+			new_network = crossover(generation[0], generation[0])
+			new_network.parent1 = generation[0].id
+			new_network.parent2 = generation[0].id
+			new_generation.append(new_network)
+			continue
+
+		#choosing parents
+		rand1 = random.random()**CROSSOVER_POWER;
+		rand2 = random.random()**CROSSOVER_POWER;
+		scaledRand1 = rand1 * POPULATION_SIZE;
+		scaledRand2 = rand2 * POPULATION_SIZE;
+		pick1 = int(scaledRand1);
+		pick2 = int(scaledRand2);
+
+		#crossover and mutation
+		new_network = crossover(generation[pick1], generation[pick2])
+		new_network.parent1 = generation[pick1].id
+		new_network.parent2 = generation[pick2].id
+		new_network.mutate(random.random()**MUTATION_POWER * MAX_MUTATION)
 		new_generation.append(new_network)
-		continue
-
-	#choosing parents
-	rand1 = random.random()**CROSSOVER_POWER;
-	rand2 = random.random()**CROSSOVER_POWER;
-	scaledRand1 = rand1 * POPULATION_SIZE;
-	scaledRand2 = rand2 * POPULATION_SIZE;
-	pick1 = int(scaledRand1);
-	pick2 = int(scaledRand2);
-
-	#crossover and mutation
-	new_network = crossover(generation[pick1], generation[pick2])
-	new_network.parent1 = generation[pick1].id
-	new_network.parent2 = generation[pick2].id
-	new_network.mutate(random.random()**MUTATION_POWER * MAX_MUTATION)
-	new_generation.append(new_network)
-
-for i in range(POPULATION_SIZE):
-	print("Network " + str(i) + ":    " + str(new_generation[i].parent1) + " " + str(new_generation[i].parent2))
-	print("    h1 " + str(new_generation[i].h1.weights) + " " + str(new_generation[i].h1.bias))
-	print("    h2 " + str(new_generation[i].h2.weights) + " " + str(new_generation[i].h2.bias))
-	print("    o1 " + str(new_generation[i].o1.weights) + " " + str(new_generation[i].o1.bias))
+	generation = new_generation
