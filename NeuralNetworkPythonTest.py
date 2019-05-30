@@ -4,7 +4,7 @@ import random
 
 POPULATION_SIZE = 2
 CROSSOVER_POWER = 2
-MUTATION_POWER = 100
+MUTATION_POWER = 10
 MAX_MUTATION = 1000
 ITERATIONS = 1000
 
@@ -38,7 +38,6 @@ class Neuron:
 
 class NeuralNetwork:
 
-	global last_id
 	def __init__(self):
 		self.id = last_id
 		increase_last_id()
@@ -160,6 +159,25 @@ for iteration in range(ITERATIONS):
 		new_generation.append(new_network)
 	generation = new_generation
 
+#testing on original data
+print("Original data")
 for j in range(len(df.index)):
 	result = generation[0].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-	print(f"{result:.3f}" + " (" + str(result) + ")")
+	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")")
+
+print()
+
+#setting new data
+data = [["Eugene", 164, 69, "M"], ["Fiona", 149, 65, "F"], ["Garreth", 177, 75, "M"], ["Heather", 155, 55, "F"]]
+df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
+mean_weight = np.mean(list(df["Weight"]))
+mean_height = np.mean(list(df["Height"]))
+for i in range(len(df.index)):
+	df.iloc[i, df.columns.get_loc("Weight")] -= mean_weight
+	df.iloc[i, df.columns.get_loc("Height")] -= mean_height
+
+#testing on new data
+print("New data")
+for j in range(len(df.index)):
+	result = generation[0].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")")
