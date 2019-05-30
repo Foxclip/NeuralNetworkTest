@@ -6,7 +6,7 @@ POPULATION_SIZE = 2
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1000
-ITERATIONS = 100
+ITERATIONS = 1000
 
 last_id = 0
 def increase_last_id():
@@ -31,6 +31,7 @@ class Neuron:
 	def mutate(self, mutation_rate):
 		for i in range(len(self.weights)):
 			self.weights[i] += random.uniform(-mutation_rate, mutation_rate)
+			self.bias += random.uniform(-mutation_rate, mutation_rate)
 			# self.weights[i] = np.clip(self.weights[i], -1.0, 1.0)
 
 class NeuralNetwork:
