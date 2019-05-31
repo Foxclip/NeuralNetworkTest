@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 import random
 
-POPULATION_SIZE = 2
+POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
-MUTATION_POWER = 10
-MAX_MUTATION = 1000
+MUTATION_POWER = 1
+MAX_MUTATION = 0.1
 ITERATIONS = 1000
 
 last_id = 0
@@ -34,7 +34,6 @@ class Neuron:
 			self.weights[i] += random.uniform(-weight_mutation_rate, weight_mutation_rate)
 		bias_mutation_rate = random.random()**MUTATION_POWER * MAX_MUTATION
 		self.bias += random.uniform(-bias_mutation_rate, bias_mutation_rate)
-			# self.weights[i] = np.clip(self.weights[i], -1.0, 1.0)
 
 class NeuralNetwork:
 
@@ -46,9 +45,6 @@ class NeuralNetwork:
 		self.h1 = Neuron("h1", [np.random.normal(), np.random.normal()], np.random.normal())
 		self.h2 = Neuron("h2", [np.random.normal(), np.random.normal()], np.random.normal())
 		self.o1 = Neuron("o1", [np.random.normal(), np.random.normal()], np.random.normal())
-		# self.h1 = Neuron("h1", [1, 1], 0)
-		# self.h2 = Neuron("h2", [1, 1], 0)
-		# self.o1 = Neuron("o1", [1, 1], 0)
 
 	def feedforward(self, x):
 		# print(x)
@@ -79,105 +75,113 @@ def crossover(network1, network2):
 	new_network.o1 = neuron_crossover(network1.o1, network2.o1)
 	return new_network
 
+def center_column(data_frame, column_name):
+	mean = np.mean(list(data_frame[column_name]))
+	for i in range(len(data_frame.index)):
+		data_frame.iloc[i, data_frame.columns.get_loc(column_name)] -= mean
+
+def train(df):
+
+	#creating networks
+	generation = []
+	for i in range(POPULATION_SIZE):
+		new_network = NeuralNetwork()
+		generation.append(new_network)
+
+	for iteration in range(ITERATIONS):
+
+		print("Generation " + str(iteration + 1))
+
+		for i in range(POPULATION_SIZE):
+			print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
+			print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
+			print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
+			print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
+
+		#calculating error
+		network_mean_errors = []
+		for i in range(POPULATION_SIZE):
+			errors = []
+			for j in range(len(df.index)):
+				result = generation[i].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+				gender = 0 if df.loc[j]["Gender"] == "M" else 1
+				error = abs(result - gender)
+				errors.append(error)
+			mean_error = np.mean(errors)
+			network_mean_errors.append(mean_error)
+		print()
+		for i in range(len(network_mean_errors)):
+			print(f"{network_mean_errors[i]:.3f}" + " (" + str(network_mean_errors[i]) + ")")
+		print()
+
+		#calculating fitness
+		for i in range(POPULATION_SIZE):
+			generation[i].fitness = 1.0/network_mean_errors[i]
+
+		#list has to be sorted
+		generation.sort(key = lambda x: x.fitness, reverse = True)
+
+		#creating new generation
+		new_generation = []
+		for i in range(POPULATION_SIZE):
+
+			#preserving the best network
+			if i == 0:
+				new_network = crossover(generation[0], generation[0])
+				new_network.parent1 = generation[0].id
+				new_network.parent2 = generation[0].id
+				new_generation.append(new_network)
+				continue
+
+			#choosing parents
+			rand1 = random.random()**CROSSOVER_POWER;
+			rand2 = random.random()**CROSSOVER_POWER;
+			scaledRand1 = rand1 * POPULATION_SIZE;
+			scaledRand2 = rand2 * POPULATION_SIZE;
+			pick1 = int(scaledRand1);
+			pick2 = int(scaledRand2);
+
+			#crossover and mutation
+			new_network = crossover(generation[pick1], generation[pick2])
+			new_network.parent1 = generation[pick1].id
+			new_network.parent2 = generation[pick2].id
+			new_network.mutate()
+			new_generation.append(new_network)
+
+		#swapping generations
+		generation = new_generation
+
+	return generation[0]
 
 #setting data
 data = [["Alice", 133, 65, "F"], ["Bob", 160, 72, "M"], ["Charlie", 152, 70, "M"], ["Diana", 120, 60, "F"]]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
-mean_weight = np.mean(list(df["Weight"]))
-mean_height = np.mean(list(df["Height"]))
-for i in range(len(df.index)):
-	df.iloc[i, df.columns.get_loc("Weight")] -= mean_weight
-	df.iloc[i, df.columns.get_loc("Height")] -= mean_height
+center_column(df, "Weight")
+center_column(df, "Height")
 
-#creating networks
-generation = []
-for i in range(POPULATION_SIZE):
-	new_network = NeuralNetwork()
-	generation.append(new_network)
-
-for iteration in range(ITERATIONS):
-
-	print("Generation " + str(iteration + 1))
-
-	for i in range(POPULATION_SIZE):
-		print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
-		print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
-		print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
-		print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
-
-	#calculating error
-	network_mean_errors = []
-	for i in range(POPULATION_SIZE):
-		# print("Network " + str(i))
-		errors = []
-		for j in range(len(df.index)):
-			result = generation[i].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-			gender = 0 if df.loc[j]["Gender"] == "M" else 1
-			error = abs(result - gender)
-			errors.append(error)
-			# print("    " + str(result) + " " + str(error))
-		mean_error = np.mean(errors)
-		network_mean_errors.append(mean_error)
-		# print("    Mean error: " + str(mean_error))
-	print()
-	for i in range(len(network_mean_errors)):
-		print(f"{network_mean_errors[i]:.3f}" + " (" + str(network_mean_errors[i]) + ")")
-	print()
-
-	#calculating fitness
-	for i in range(POPULATION_SIZE):
-		generation[i].fitness = 1.0/network_mean_errors[i]
-
-	#list has to be sorted
-	generation.sort(key = lambda x: x.fitness, reverse = True)
-
-	#creating new generation
-	new_generation = []
-	for i in range(POPULATION_SIZE):
-
-		#preserving the best network
-		if i == 0:
-			new_network = crossover(generation[0], generation[0])
-			new_network.parent1 = generation[0].id
-			new_network.parent2 = generation[0].id
-			new_generation.append(new_network)
-			continue
-
-		#choosing parents
-		rand1 = random.random()**CROSSOVER_POWER;
-		rand2 = random.random()**CROSSOVER_POWER;
-		scaledRand1 = rand1 * POPULATION_SIZE;
-		scaledRand2 = rand2 * POPULATION_SIZE;
-		pick1 = int(scaledRand1);
-		pick2 = int(scaledRand2);
-
-		#crossover and mutation
-		new_network = crossover(generation[pick1], generation[pick2])
-		new_network.parent1 = generation[pick1].id
-		new_network.parent2 = generation[pick2].id
-		new_network.mutate()
-		new_generation.append(new_network)
-	generation = new_generation
+#training
+best_network = train(df)
 
 #testing on original data
 print("Original data")
 for j in range(len(df.index)):
-	result = generation[0].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")")
+	result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+	result_gender = "M" if result < 0.5 else "F"
+	pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
+	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
 
 print()
 
 #setting new data
 data = [["Eugene", 164, 69, "M"], ["Fiona", 149, 65, "F"], ["Garreth", 177, 75, "M"], ["Heather", 155, 55, "F"]]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
-mean_weight = np.mean(list(df["Weight"]))
-mean_height = np.mean(list(df["Height"]))
-for i in range(len(df.index)):
-	df.iloc[i, df.columns.get_loc("Weight")] -= mean_weight
-	df.iloc[i, df.columns.get_loc("Height")] -= mean_height
+center_column(df, "Weight")
+center_column(df, "Height")
 
 #testing on new data
 print("New data")
 for j in range(len(df.index)):
-	result = generation[0].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")")
+	result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+	result_gender = "M" if result < 0.5 else "F"
+	pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
+	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
