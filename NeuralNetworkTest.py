@@ -3,14 +3,15 @@ import pandas as pd
 import random
 import pygame
 import sys
+import math
 
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
-MUTATION_POWER = 10
+MUTATION_POWER = 100
 MAX_MUTATION = 1000
-ITERATIONS = 10000
+ITERATIONS = 1000
 
-HIDDEN_LAYER_NEURONS = 8
+HIDDEN_LAYER_NEURONS = 3
 
 last_id = 0
 def increase_last_id():
@@ -19,6 +20,12 @@ def increase_last_id():
 
 def sigmoid(x):
 	return 1 / (1 + np.exp(-x))
+
+def relu(x):
+	return max(0, x)
+
+def tanh(x):
+	return (math.tanh(x) + 1) / 2
 
 class Neuron:
 
@@ -56,6 +63,8 @@ class NeuralNetwork:
 		self.o1 = Neuron("o1", o1_initial_weights, np.random.normal())
 
 	def feedforward(self, x):
+		# for i in range(len(x)):
+		# 	x[i] = x[i]**3
 		outputs = []
 		for i in range(len(self.hidden_neurons)):
 			output = self.hidden_neurons[i].feedforward(x)
@@ -99,16 +108,17 @@ def train(df):
 		new_network = NeuralNetwork()
 		generation.append(new_network)
 
+	minimal_error = 1.0
+
 	for iteration in range(ITERATIONS):
 
 		print("Generation " + str(iteration + 1))
 
 		# for i in range(POPULATION_SIZE):
 		# 	print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
-		# 	print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
-		# 	print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
-		# 	print("    h3 " + str(generation[i].h3.weights) + " " + str(generation[i].h3.bias))
-		# 	print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
+		# 	for j in range(len(generation[i].hidden_neurons)):
+		# 		neuron = generation[i].hidden_neurons[j]
+		# 		print("    " + neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
 
 		#calculating error
 		network_mean_errors = []
@@ -132,6 +142,8 @@ def train(df):
 
 		#list has to be sorted
 		generation.sort(key = lambda x: x.fitness, reverse = True)
+		if(1.0/generation[0].fitness < minimal_error):
+			minimal_error = 1.0/generation[0].fitness
 
 		#creating new generation
 		new_generation = []
@@ -174,19 +186,25 @@ def train(df):
 		if not fail:
 			break
 
+	print()
+	print("Minimal error: " + str(minimal_error))
+
 	return generation[0]
 
 #setting data
 data = 	[
-			["Alice", 133, 65, "F"], 
+			["Alice", 123, 65, "F"], 
 			["Bob", 160, 72, "M"],
 			["Charlie", 152, 70, "M"],
 			["Diana", 120, 60, "F"],
 			["Eugene", 164, 69, "M"],
-			["Fiona", 149, 65, "F"],
+			["Fiona", 129, 65, "F"],
 			["Garreth", 177, 75, "M"],
-			["Heather", 155, 55, "F"],
-			["Short man", 75, 30, "M"]
+			["Heather", 135, 55, "F"],
+			["Short man 1", 75, 30, "M"],
+			["Short man 2", 70, 25, "M"],
+			["Short man 3", 80, 28, "M"],
+			["Short man 4", 90, 50, "M"],
 		]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
 weight_mean = center_column(df, "Weight")
@@ -235,6 +253,10 @@ for i in range(surface.get_width()):
 	for j in range(surface.get_height()):
 		result = best_network.feedforward([i - weight_mean, j - height_mean])
 		scaled_result = result*255
+		if(scaled_result < 0):
+			scaled_result = 0
+		if(scaled_result > 255):
+			scaled_result = 255
 		pixels[i, j] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
 del pixels
 
@@ -243,6 +265,7 @@ while(1):
 	screen.fill((255, 255, 255))
 	screen.blit(surface, (0, 0))
 
+	#drawing data points
 	for i in range(len(df.index)):
 		x = int(df.loc[i]["Weight"] + weight_mean)
 		y = int(df.loc[i]["Height"] + height_mean)
