@@ -6,9 +6,11 @@ import sys
 
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
-MUTATION_POWER = 100
+MUTATION_POWER = 10
 MAX_MUTATION = 1000
-ITERATIONS = 100
+ITERATIONS = 10000
+
+HIDDEN_LAYER_NEURONS = 8
 
 last_id = 0
 def increase_last_id():
@@ -40,27 +42,30 @@ class Neuron:
 class NeuralNetwork:
 
 	def __init__(self):
+		self.hidden_neurons = []
 		self.id = last_id
 		increase_last_id()
 		self.parent1 = -1
 		self.parent2 = -1
-		self.h1 = Neuron("h1", [np.random.normal(), np.random.normal()], np.random.normal())
-		self.h2 = Neuron("h2", [np.random.normal(), np.random.normal()], np.random.normal())
-		self.h3 = Neuron("h3", [np.random.normal(), np.random.normal()], np.random.normal())
-		self.o1 = Neuron("o1", [np.random.normal(), np.random.normal(), np.random.normal()], np.random.normal())
+		for i in range(HIDDEN_LAYER_NEURONS):
+			new_neuron = Neuron("h" + str(i), [np.random.normal(), np.random.normal()], np.random.normal())
+			self.hidden_neurons.append(new_neuron)
+		o1_initial_weights = []
+		for i in range(len(self.hidden_neurons)):
+			o1_initial_weights.append(np.random.normal())
+		self.o1 = Neuron("o1", o1_initial_weights, np.random.normal())
 
 	def feedforward(self, x):
-		# print(x)
-		h1_out = self.h1.feedforward(x)
-		h2_out = self.h2.feedforward(x)
-		h3_out = self.h3.feedforward(x)
-		o1_out = self.o1.feedforward([h1_out, h2_out, h3_out])
+		outputs = []
+		for i in range(len(self.hidden_neurons)):
+			output = self.hidden_neurons[i].feedforward(x)
+			outputs.append(output)
+		o1_out = self.o1.feedforward(outputs)
 		return o1_out
 
 	def mutate(self):
-		self.h1.mutate()
-		self.h2.mutate()
-		self.h3.mutate()
+		for i in range(len(self.hidden_neurons)):
+			self.hidden_neurons[i].mutate()
 		self.o1.mutate()
 
 def lists_average(list1, list2):
@@ -71,13 +76,12 @@ def lists_average(list1, list2):
 	return avg_list
 
 def neuron_crossover(neuron1, neuron2):
-	return Neuron("New neuron", lists_average(neuron1.weights, neuron2.weights), np.mean([neuron1.bias, neuron2.bias]))
+	return Neuron(neuron1.name, lists_average(neuron1.weights, neuron2.weights), np.mean([neuron1.bias, neuron2.bias]))
 
 def crossover(network1, network2):
 	new_network = NeuralNetwork()
-	new_network.h1 = neuron_crossover(network1.h1, network2.h1)
-	new_network.h2 = neuron_crossover(network1.h2, network2.h2)
-	new_network.h3 = neuron_crossover(network1.h3, network2.h3)
+	for i in range(len(network1.hidden_neurons)):
+		new_network.hidden_neurons[i] = neuron_crossover(network1.hidden_neurons[i], network2.hidden_neurons[i])
 	new_network.o1 = neuron_crossover(network1.o1, network2.o1)
 	return new_network
 
@@ -99,12 +103,12 @@ def train(df):
 
 		print("Generation " + str(iteration + 1))
 
-		for i in range(POPULATION_SIZE):
-			print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
-			print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
-			print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
-			print("    h3 " + str(generation[i].h3.weights) + " " + str(generation[i].h3.bias))
-			print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
+		# for i in range(POPULATION_SIZE):
+		# 	print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
+		# 	print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
+		# 	print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
+		# 	print("    h3 " + str(generation[i].h3.weights) + " " + str(generation[i].h3.bias))
+		# 	print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
 
 		#calculating error
 		network_mean_errors = []
@@ -117,10 +121,10 @@ def train(df):
 				errors.append(error)
 			mean_error = np.mean(errors)
 			network_mean_errors.append(mean_error)
-		print()
-		for i in range(len(network_mean_errors)):
-			print(f"{network_mean_errors[i]:.3f}" + " (" + str(network_mean_errors[i]) + ")")
-		print()
+		# print()
+		# for i in range(len(network_mean_errors)):
+		# 	print(f"{network_mean_errors[i]:.3f}" + " (" + str(network_mean_errors[i]) + ")")
+		# print()
 
 		#calculating fitness
 		for i in range(POPULATION_SIZE):
@@ -159,6 +163,17 @@ def train(df):
 		#swapping generations
 		generation = new_generation
 
+		#cheking if best network passes all tests
+		fail = False
+		for i in range(len(df.index)):
+			result = generation[0].feedforward([df.loc[i]["Weight"], df.loc[i]["Height"]])
+			result_gender = "M" if result < 0.5 else "F"
+			if result_gender != df.loc[i]["Gender"]:
+				fail = True
+				break
+		if not fail:
+			break
+
 	return generation[0]
 
 #setting data
@@ -171,7 +186,7 @@ data = 	[
 			["Fiona", 149, 65, "F"],
 			["Garreth", 177, 75, "M"],
 			["Heather", 155, 55, "F"],
-			["Short man", 50, 30, "M"]
+			["Short man", 75, 30, "M"]
 		]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
 weight_mean = center_column(df, "Weight")
@@ -181,6 +196,7 @@ height_mean = center_column(df, "Height")
 best_network = train(df)
 
 #testing on original data
+print()
 print("Original data")
 for j in range(len(df.index)):
 	result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
