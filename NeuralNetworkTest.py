@@ -4,9 +4,9 @@ import random
 import pygame
 import sys
 
-POPULATION_SIZE = 5
+POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
-MUTATION_POWER = 10
+MUTATION_POWER = 100
 MAX_MUTATION = 1000
 ITERATIONS = 100
 
@@ -46,18 +46,21 @@ class NeuralNetwork:
 		self.parent2 = -1
 		self.h1 = Neuron("h1", [np.random.normal(), np.random.normal()], np.random.normal())
 		self.h2 = Neuron("h2", [np.random.normal(), np.random.normal()], np.random.normal())
-		self.o1 = Neuron("o1", [np.random.normal(), np.random.normal()], np.random.normal())
+		self.h3 = Neuron("h3", [np.random.normal(), np.random.normal()], np.random.normal())
+		self.o1 = Neuron("o1", [np.random.normal(), np.random.normal(), np.random.normal()], np.random.normal())
 
 	def feedforward(self, x):
 		# print(x)
 		h1_out = self.h1.feedforward(x)
 		h2_out = self.h2.feedforward(x)
-		o1_out = self.o1.feedforward([h1_out, h2_out])
+		h3_out = self.h3.feedforward(x)
+		o1_out = self.o1.feedforward([h1_out, h2_out, h3_out])
 		return o1_out
 
 	def mutate(self):
 		self.h1.mutate()
 		self.h2.mutate()
+		self.h3.mutate()
 		self.o1.mutate()
 
 def lists_average(list1, list2):
@@ -74,6 +77,7 @@ def crossover(network1, network2):
 	new_network = NeuralNetwork()
 	new_network.h1 = neuron_crossover(network1.h1, network2.h1)
 	new_network.h2 = neuron_crossover(network1.h2, network2.h2)
+	new_network.h3 = neuron_crossover(network1.h3, network2.h3)
 	new_network.o1 = neuron_crossover(network1.o1, network2.o1)
 	return new_network
 
@@ -99,6 +103,7 @@ def train(df):
 			print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
 			print("    h1 " + str(generation[i].h1.weights) + " " + str(generation[i].h1.bias))
 			print("    h2 " + str(generation[i].h2.weights) + " " + str(generation[i].h2.bias))
+			print("    h3 " + str(generation[i].h3.weights) + " " + str(generation[i].h3.bias))
 			print("    o1 " + str(generation[i].o1.weights) + " " + str(generation[i].o1.bias))
 
 		#calculating error
@@ -166,7 +171,7 @@ data = 	[
 			["Fiona", 149, 65, "F"],
 			["Garreth", 177, 75, "M"],
 			["Heather", 155, 55, "F"],
-			["Short man", 50, 50, "M"]
+			["Short man", 50, 30, "M"]
 		]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
 weight_mean = center_column(df, "Weight")
@@ -225,7 +230,7 @@ while(1):
 	for i in range(len(df.index)):
 		x = int(df.loc[i]["Weight"] + weight_mean)
 		y = int(df.loc[i]["Height"] + height_mean)
-		color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(50, 50, 255)
+		color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
 		pygame.draw.circle(screen, color, (x, y), 3)
 
 	pygame.display.flip()
