@@ -1,12 +1,14 @@
 import numpy as np
 import pandas as pd
 import random
+import pygame
+import sys
 
-POPULATION_SIZE = 10
+POPULATION_SIZE = 5
 CROSSOVER_POWER = 2
-MUTATION_POWER = 1
-MAX_MUTATION = 0.1
-ITERATIONS = 1000
+MUTATION_POWER = 10
+MAX_MUTATION = 1000
+ITERATIONS = 100
 
 last_id = 0
 def increase_last_id():
@@ -79,6 +81,7 @@ def center_column(data_frame, column_name):
 	mean = np.mean(list(data_frame[column_name]))
 	for i in range(len(data_frame.index)):
 		data_frame.iloc[i, data_frame.columns.get_loc(column_name)] -= mean
+	return mean
 
 def train(df):
 
@@ -154,10 +157,20 @@ def train(df):
 	return generation[0]
 
 #setting data
-data = [["Alice", 133, 65, "F"], ["Bob", 160, 72, "M"], ["Charlie", 152, 70, "M"], ["Diana", 120, 60, "F"]]
+data = 	[
+			["Alice", 133, 65, "F"], 
+			["Bob", 160, 72, "M"],
+			["Charlie", 152, 70, "M"],
+			["Diana", 120, 60, "F"],
+			["Eugene", 164, 69, "M"],
+			["Fiona", 149, 65, "F"],
+			["Garreth", 177, 75, "M"],
+			["Heather", 155, 55, "F"],
+			["Short man", 50, 50, "M"]
+		]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
-center_column(df, "Weight")
-center_column(df, "Height")
+weight_mean = center_column(df, "Weight")
+height_mean = center_column(df, "Height")
 
 #training
 best_network = train(df)
@@ -172,16 +185,51 @@ for j in range(len(df.index)):
 
 print()
 
-#setting new data
-data = [["Eugene", 164, 69, "M"], ["Fiona", 149, 65, "F"], ["Garreth", 177, 75, "M"], ["Heather", 155, 55, "F"]]
-df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
-center_column(df, "Weight")
-center_column(df, "Height")
+# #setting new data
+# data = [["Eugene", 164, 69, "M"], ["Fiona", 149, 65, "F"], ["Garreth", 177, 75, "M"], ["Heather", 155, 55, "F"]]
+# df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
+# center_column(df, "Weight")
+# center_column(df, "Height")
 
-#testing on new data
-print("New data")
-for j in range(len(df.index)):
-	result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-	result_gender = "M" if result < 0.5 else "F"
-	pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
-	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
+# #testing on new data
+# print("New data")
+# for j in range(len(df.index)):
+# 	result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+# 	result_gender = "M" if result < 0.5 else "F"
+# 	pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
+# 	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
+
+#initializing pygame
+SCREEN_WIDTH = 640
+SCREEN_HEIGHT = 480
+pygame.init()
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+pygame.draw.circle(screen, pygame.Color(0, 255, 0, 0), (0, 0), 200)
+
+#rendering graph
+surface = pygame.Surface((200, 200))
+pixels = pygame.surfarray.pixels2d(surface)
+for i in range(surface.get_width()):
+	for j in range(surface.get_height()):
+		result = best_network.feedforward([i - weight_mean, j - height_mean])
+		scaled_result = result*255
+		pixels[i, j] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
+del pixels
+
+#starting render
+while(1):
+	screen.fill((255, 255, 255))
+	screen.blit(surface, (0, 0))
+
+	for i in range(len(df.index)):
+		x = int(df.loc[i]["Weight"] + weight_mean)
+		y = int(df.loc[i]["Height"] + height_mean)
+		color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(50, 50, 255)
+		pygame.draw.circle(screen, color, (x, y), 3)
+
+	pygame.display.flip()
+
+	for event in pygame.event.get():
+		if event.type == pygame.QUIT:
+			sys.exit()
