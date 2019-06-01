@@ -8,7 +8,7 @@ import math
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
-MAX_MUTATION = 1000
+MAX_MUTATION = 1
 ITERATIONS = 1000
 
 HIDDEN_LAYER_NEURONS = 8
@@ -206,26 +206,29 @@ data = 	[
 			["Bob", 160, 72, "M"],
 			["Charlie", 152, 70, "M"],
 			["Diana", 120, 60, "F"],
-			["Eugene", 164, 69, "M"],
-			["Fiona", 129, 65, "F"],
-			["Garreth", 177, 75, "M"],
-			["Heather", 135, 55, "F"],
-			["Short man 1", 75, 30, "M"],
-			["Short man 2", 70, 25, "M"],
-			["Short man 3", 80, 28, "M"],
-			["Short man 4", 90, 50, "M"],
-			["Short heavy man 1", 75, 150, "M"],
-			["Short heavy man 2", 70, 125, "M"],
-			["Short heavy man 3", 80, 134, "M"],
-			["Short heavy man 4", 90, 128, "M"],
-			["Short woman 1", 49, 78, "F"],
-			["Short woman 2", 58, 74, "F"],
-			["Short woman 3", 32, 90, "F"],
-			["Short woman 4", 56, 66, "F"],
-			["Tall light man 1", 180, 23, "M"],
-			["Tall light man 2", 170, 20, "M"],
-			["Tall light man 3", 175, 30, "M"],
-			["Tall light man 4", 169, 10, "M"],
+
+			# ["Eugene", 164, 69, "M"],
+			# ["Fiona", 129, 65, "F"],
+			# ["Garreth", 177, 75, "M"],
+			# ["Heather", 135, 55, "F"],
+
+			# ["Short man 1", 75, 30, "M"],
+			# ["Short man 2", 70, 25, "M"],
+			# ["Short man 3", 80, 28, "M"],
+			# ["Short man 4", 90, 50, "M"],
+			# ["Short heavy man 1", 75, 150, "M"],
+			# ["Short heavy man 2", 70, 125, "M"],
+			# ["Short heavy man 3", 80, 134, "M"],
+			# ["Short heavy man 4", 90, 128, "M"],
+			# ["Short woman 1", 49, 78, "F"],
+			# ["Short woman 2", 58, 74, "F"],
+			# ["Short woman 3", 32, 90, "F"],
+			# ["Short woman 4", 56, 66, "F"],
+			# ["Tall light man 1", 180, 23, "M"],
+			# ["Tall light man 2", 170, 20, "M"],
+			# ["Tall light man 3", 175, 30, "M"],
+			# ["Tall light man 4", 169, 10, "M"],
+
 			# ["1", 10, 148, "F"],
 			# ["1", 15, 126, "F"],
 			# ["1", 16, 131, "F"],
@@ -249,6 +252,16 @@ height_mean = center_column(df, "Height")
 
 #training
 best_network = train(df)
+
+print()
+
+#printing weights of the best network
+print("Weights")
+for neuron in best_network.hidden_neurons:
+	print(neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
+print(best_network.o1.name)
+for i in range(len(best_network.hidden_neurons)):
+	print("    " + best_network.hidden_neurons[i].name + " " + str(best_network.o1.weights[i]))
 
 #testing on original data
 print()
