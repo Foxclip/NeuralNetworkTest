@@ -10,6 +10,7 @@ CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1
 ITERATIONS = 1000
+MINIMAL_ERROR_SHUTDOWN = False
 
 HIDDEN_LAYER_NEURONS = 8
 CLIP_VALUES = False
@@ -138,10 +139,6 @@ def train(df):
 				errors.append(error)
 			mean_error = np.mean(errors)
 			network_mean_errors.append(mean_error)
-		# print()
-		# for i in range(len(network_mean_errors)):
-		# 	print(f"{network_mean_errors[i]:.3f}" + " (" + str(network_mean_errors[i]) + ")")
-		# print()
 
 		#calculating fitness
 		for i in range(POPULATION_SIZE):
@@ -149,6 +146,8 @@ def train(df):
 
 		#list has to be sorted
 		generation.sort(key = lambda x: x.fitness, reverse = True)
+
+		#updating minimal error
 		if(1.0/generation[0].fitness < minimal_error):
 			minimal_error = 1.0/generation[0].fitness
 
@@ -182,18 +181,40 @@ def train(df):
 		#swapping generations
 		generation = new_generation
 
-		#cheking if best network passes all tests
-		# fail = False
-		# for i in range(len(df.index)):
-		# 	result = generation[0].feedforward([df.loc[i]["Weight"], df.loc[i]["Height"]])
-		# 	result_gender = "M" if result < 0.5 else "F"
-		# 	if result_gender != df.loc[i]["Gender"]:
-		# 		fail = True
-		# 		break
-		# if not fail:
-		# 	break
-		if minimal_error < 1.0/len(df.index)/2:
-			break
+		#rendering graph
+		best_network = generation[0]
+		pixels = pygame.surfarray.pixels2d(surface)
+		for i in range(0, surface.get_width(), 10):
+			for j in range(0, surface.get_height(), 10):
+				result = best_network.feedforward([i - weight_mean, j - height_mean])
+				scaled_result = result*255
+				if(scaled_result < 0):
+					scaled_result = 0
+				if(scaled_result > 255):
+					scaled_result = 255
+				pixels[i, j] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
+		del pixels
+
+		screen.fill((255, 255, 255))
+		screen.blit(surface, (0, 0))
+
+		#drawing data points
+		for i in range(len(df.index)):
+			x = int(df.loc[i]["Weight"] + weight_mean)
+			y = int(df.loc[i]["Height"] + height_mean)
+			color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
+			pygame.draw.circle(screen, color, (x, y), 1)
+			pygame.display.flip()
+
+		#reacting to events, so window can be closed
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				sys.exit()
+
+		#if minimal error goes below threshold, training stops
+		if MINIMAL_ERROR_SHUTDOWN:
+			if minimal_error < 1.0/len(df.index)/2:
+				break
 
 	print()
 	print("Minimal error: " + str(minimal_error))
@@ -250,6 +271,13 @@ df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
 weight_mean = center_column(df, "Weight")
 height_mean = center_column(df, "Height")
 
+#initializing pygame
+SCREEN_WIDTH = 640
+SCREEN_HEIGHT = 480
+pygame.init()
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+surface = pygame.Surface((200, 200))
+
 #training
 best_network = train(df)
 
@@ -274,56 +302,8 @@ for j in range(len(df.index)):
 
 print()
 
-# #setting new data
-# data = [["Eugene", 164, 69, "M"], ["Fiona", 149, 65, "F"], ["Garreth", 177, 75, "M"], ["Heather", 155, 55, "F"]]
-# df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
-# center_column(df, "Weight")
-# center_column(df, "Height")
-
-# #testing on new data
-# print("New data")
-# for j in range(len(df.index)):
-# 	result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-# 	result_gender = "M" if result < 0.5 else "F"
-# 	pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
-# 	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
-
-#initializing pygame
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 480
-pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-
-pygame.draw.circle(screen, pygame.Color(0, 255, 0, 0), (0, 0), 200)
-
-#rendering graph
-surface = pygame.Surface((200, 200))
-pixels = pygame.surfarray.pixels2d(surface)
-for i in range(surface.get_width()):
-	for j in range(surface.get_height()):
-		result = best_network.feedforward([i - weight_mean, j - height_mean])
-		scaled_result = result*255
-		if(scaled_result < 0):
-			scaled_result = 0
-		if(scaled_result > 255):
-			scaled_result = 255
-		pixels[i, j] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
-del pixels
-
 #starting render
 while(1):
-	screen.fill((255, 255, 255))
-	screen.blit(surface, (0, 0))
-
-	#drawing data points
-	for i in range(len(df.index)):
-		x = int(df.loc[i]["Weight"] + weight_mean)
-		y = int(df.loc[i]["Height"] + height_mean)
-		color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
-		pygame.draw.circle(screen, color, (x, y), 1)
-
-	pygame.display.flip()
-
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
 			sys.exit()
