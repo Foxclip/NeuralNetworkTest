@@ -9,13 +9,14 @@ POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1
-ITERATIONS = 1000
+ITERATIONS = 100
 MINIMAL_ERROR_SHUTDOWN = False
 
 HIDDEN_LAYER_NEURONS = 8
 CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
+RENDER_INTERPOLATION_STEP = 5
 
 last_id = 0
 def increase_last_id():
@@ -107,6 +108,39 @@ def center_column(data_frame, column_name):
 		data_frame.iloc[i, data_frame.columns.get_loc(column_name)] -= mean
 	return mean
 
+def bilinear_interpolation(x, y, points):
+    '''Interpolate (x,y) from values associated with four points.
+
+    The four points are a list of four triplets:  (x, y, value).
+    The four points can be in any order.  They should form a rectangle.
+
+        >>> bilinear_interpolation(12, 5.5,
+        ...                        [(10, 4, 100),
+        ...                         (20, 4, 200),
+        ...                         (10, 6, 150),
+        ...                         (20, 6, 300)])
+        165.0
+
+    '''
+    # See formula at:  http://en.wikipedia.org/wiki/Bilinear_interpolation
+
+    points = sorted(points)               # order points by x, then by y
+    (x1, y1, q11), (_x1, y2, q12), (x2, _y1, q21), (_x2, _y2, q22) = points
+
+    if x1 != _x1 or x2 != _x2 or y1 != _y1 or y2 != _y2:
+        raise ValueError('points do not form a rectangle')
+    if not x1 <= x <= x2 or not y1 <= y <= y2:
+    	print("x: " + str(x))
+    	print("y: " + str(y))
+    	print("points: " + str(points))
+    	raise ValueError('(x, y) not within the rectangle')
+
+    return (q11 * (x2 - x) * (y2 - y) +
+            q21 * (x - x1) * (y2 - y) +
+            q12 * (x2 - x) * (y - y1) +
+            q22 * (x - x1) * (y - y1)
+           ) / ((x2 - x1) * (y2 - y1) + 0.0)
+
 def train(df):
 
 	#creating networks
@@ -184,15 +218,36 @@ def train(df):
 		#rendering graph
 		best_network = generation[0]
 		pixels = pygame.surfarray.pixels2d(surface)
-		for i in range(0, surface.get_width(), 10):
-			for j in range(0, surface.get_height(), 10):
-				result = best_network.feedforward([i - weight_mean, j - height_mean])
+		points = []
+		#collecting data points
+		for y in range(0, surface.get_height(), RENDER_INTERPOLATION_STEP):
+			for x in range(0, surface.get_width(), RENDER_INTERPOLATION_STEP):
+				result = best_network.feedforward([x - weight_mean, y - height_mean])
+				points.append((x, y, result))
+		#drawing interpolated points
+		for y in range(surface.get_height() - RENDER_INTERPOLATION_STEP - 1):
+			for x in range(surface.get_width() - RENDER_INTERPOLATION_STEP - 1):
+				column = int(float(x) / RENDER_INTERPOLATION_STEP)
+				row = int(float(y) / RENDER_INTERPOLATION_STEP)
+				column_count = int(surface.get_width() / RENDER_INTERPOLATION_STEP)
+				point1_index = row*column_count + column
+				point2_index = point1_index + 1
+				point3_index = (row + 1)*column_count + column
+				point4_index = (row + 1)*column_count + column + 1
+				# print("x: " + str(x))
+				# print("y: " + str(y))
+				# print("column: " + str(column) + " " + str(float(x) / surface.get_width() * RENDER_INTERPOLATION_STEP))
+				# print("row: " + str(row))
+				# print("column_count: " + str(column_count))
+				point_list = [points[point1_index], points[point2_index], points[point3_index], points[point4_index]]
+				result = bilinear_interpolation(x, y, point_list)
 				scaled_result = result*255
 				if(scaled_result < 0):
 					scaled_result = 0
 				if(scaled_result > 255):
 					scaled_result = 255
-				pixels[i, j] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
+				pixels[x, y] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
+
 		del pixels
 
 		screen.fill((255, 255, 255))
