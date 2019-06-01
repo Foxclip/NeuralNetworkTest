@@ -11,7 +11,10 @@ MUTATION_POWER = 100
 MAX_MUTATION = 1000
 ITERATIONS = 1000
 
-HIDDEN_LAYER_NEURONS = 3
+HIDDEN_LAYER_NEURONS = 8
+CLIP_VALUES = False
+
+PRINT_WEIGHTS = False
 
 last_id = 0
 def increase_last_id():
@@ -45,6 +48,9 @@ class Neuron:
 			self.weights[i] += random.uniform(-weight_mutation_rate, weight_mutation_rate)
 		bias_mutation_rate = random.random()**MUTATION_POWER * MAX_MUTATION
 		self.bias += random.uniform(-bias_mutation_rate, bias_mutation_rate)
+		if(CLIP_VALUES):
+			self.weights = np.clip(self.weights, -1.0, 1.0)
+			self.bias = np.clip(self.bias, -1.0, 1.0)
 
 class NeuralNetwork:
 
@@ -64,7 +70,7 @@ class NeuralNetwork:
 
 	def feedforward(self, x):
 		# for i in range(len(x)):
-		# 	x[i] = x[i]**3
+		# 	x[i] = 1.0/x[i]
 		outputs = []
 		for i in range(len(self.hidden_neurons)):
 			output = self.hidden_neurons[i].feedforward(x)
@@ -112,13 +118,14 @@ def train(df):
 
 	for iteration in range(ITERATIONS):
 
-		print("Generation " + str(iteration + 1))
+		print("Generation " + str(iteration + 1) + " " + str(minimal_error))
 
-		# for i in range(POPULATION_SIZE):
-		# 	print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
-		# 	for j in range(len(generation[i].hidden_neurons)):
-		# 		neuron = generation[i].hidden_neurons[j]
-		# 		print("    " + neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
+		if(PRINT_WEIGHTS):
+			for i in range(POPULATION_SIZE):
+				print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
+				for j in range(len(generation[i].hidden_neurons)):
+					neuron = generation[i].hidden_neurons[j]
+					print("    " + neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
 
 		#calculating error
 		network_mean_errors = []
@@ -176,14 +183,16 @@ def train(df):
 		generation = new_generation
 
 		#cheking if best network passes all tests
-		fail = False
-		for i in range(len(df.index)):
-			result = generation[0].feedforward([df.loc[i]["Weight"], df.loc[i]["Height"]])
-			result_gender = "M" if result < 0.5 else "F"
-			if result_gender != df.loc[i]["Gender"]:
-				fail = True
-				break
-		if not fail:
+		# fail = False
+		# for i in range(len(df.index)):
+		# 	result = generation[0].feedforward([df.loc[i]["Weight"], df.loc[i]["Height"]])
+		# 	result_gender = "M" if result < 0.5 else "F"
+		# 	if result_gender != df.loc[i]["Gender"]:
+		# 		fail = True
+		# 		break
+		# if not fail:
+		# 	break
+		if minimal_error < 1.0/len(df.index)/2:
 			break
 
 	print()
@@ -205,6 +214,34 @@ data = 	[
 			["Short man 2", 70, 25, "M"],
 			["Short man 3", 80, 28, "M"],
 			["Short man 4", 90, 50, "M"],
+			["Short heavy man 1", 75, 150, "M"],
+			["Short heavy man 2", 70, 125, "M"],
+			["Short heavy man 3", 80, 134, "M"],
+			["Short heavy man 4", 90, 128, "M"],
+			["Short woman 1", 49, 78, "F"],
+			["Short woman 2", 58, 74, "F"],
+			["Short woman 3", 32, 90, "F"],
+			["Short woman 4", 56, 66, "F"],
+			["Tall light man 1", 180, 23, "M"],
+			["Tall light man 2", 170, 20, "M"],
+			["Tall light man 3", 175, 30, "M"],
+			["Tall light man 4", 169, 10, "M"],
+			# ["1", 10, 148, "F"],
+			# ["1", 15, 126, "F"],
+			# ["1", 16, 131, "F"],
+			# ["1", 20, 143, "F"],
+			# ["1", 30, 28, "F"],
+			# ["1", 40, 70, "F"],
+			# ["1", 50, 179, "F"],
+			# ["1", 60, 62, "F"],
+			# ["1", 70, 50, "F"],
+			# ["1", 80, 65, "F"],
+			# ["1", 90, 32, "F"],
+			# ["2", 19, 156, "M"],
+			# ["2", 120, 58, "M"],
+			# ["2", 93, 22, "M"],
+			# ["2", 191, 120, "M"],
+			# ["2", 146, 135, "M"],
 		]
 df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
 weight_mean = center_column(df, "Weight")
@@ -270,7 +307,7 @@ while(1):
 		x = int(df.loc[i]["Weight"] + weight_mean)
 		y = int(df.loc[i]["Height"] + height_mean)
 		color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
-		pygame.draw.circle(screen, color, (x, y), 3)
+		pygame.draw.circle(screen, color, (x, y), 1)
 
 	pygame.display.flip()
 
