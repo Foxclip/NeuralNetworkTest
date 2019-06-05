@@ -1,18 +1,19 @@
 import numpy as np
 import pandas as pd
 import random
-import pygame
-import sys
 import math
+import graphics
+import threading
+import time
 
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1
-ITERATIONS = 100
+ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
 
-HIDDEN_LAYER_NEURONS = 8
+HIDDEN_LAYER_NEURONS = 1
 CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
@@ -217,59 +218,65 @@ def train(df):
 
 		#rendering graph
 		best_network = generation[0]
-		pixels = pygame.surfarray.pixels2d(surface)
+		# pixels = pygame.surfarray.pixels2d(surface)
 		points = []
 		#collecting data points
-		for y in range(0, surface.get_height(), RENDER_INTERPOLATION_STEP):
-			for x in range(0, surface.get_width(), RENDER_INTERPOLATION_STEP):
-				result = best_network.feedforward([x - weight_mean, y - height_mean])
-				points.append((x, y, result))
-		#drawing interpolated points
-		for y in range(surface.get_height() - RENDER_INTERPOLATION_STEP - 1):
-			for x in range(surface.get_width() - RENDER_INTERPOLATION_STEP - 1):
-				column = int(float(x) / RENDER_INTERPOLATION_STEP)
-				row = int(float(y) / RENDER_INTERPOLATION_STEP)
-				column_count = int(surface.get_width() / RENDER_INTERPOLATION_STEP)
-				point1_index = row*column_count + column
-				point2_index = point1_index + 1
-				point3_index = (row + 1)*column_count + column
-				point4_index = (row + 1)*column_count + column + 1
-				# print("x: " + str(x))
-				# print("y: " + str(y))
-				# print("column: " + str(column) + " " + str(float(x) / surface.get_width() * RENDER_INTERPOLATION_STEP))
-				# print("row: " + str(row))
-				# print("column_count: " + str(column_count))
-				point_list = [points[point1_index], points[point2_index], points[point3_index], points[point4_index]]
-				result = bilinear_interpolation(x, y, point_list)
-				scaled_result = result*255
-				if(scaled_result < 0):
-					scaled_result = 0
-				if(scaled_result > 255):
-					scaled_result = 255
-				pixels[x, y] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
+		scaleFactor = 512.0/200.0
+		for y in range(0, 512, 128):
+			for x in range(0, 512, 128):
+				result = best_network.feedforward([int((x - weight_mean)/scaleFactor), int((y - height_mean)/scaleFactor)])
+				new_point = graphics.Point(x, y, result)
+				points.append(new_point)
+		renderer.points = points
 
-		del pixels
+		# #drawing interpolated points
+		# for y in range(surface.get_height() - RENDER_INTERPOLATION_STEP - 1):
+		# 	for x in range(surface.get_width() - RENDER_INTERPOLATION_STEP - 1):
+		# 		column = int(float(x) / RENDER_INTERPOLATION_STEP)
+		# 		row = int(float(y) / RENDER_INTERPOLATION_STEP)
+		# 		column_count = int(surface.get_width() / RENDER_INTERPOLATION_STEP)
+		# 		point1_index = row*column_count + column
+		# 		point2_index = point1_index + 1
+		# 		point3_index = (row + 1)*column_count + column
+		# 		point4_index = (row + 1)*column_count + column + 1
+		# 		# print("x: " + str(x))
+		# 		# print("y: " + str(y))
+		# 		# print("column: " + str(column) + " " + str(float(x) / surface.get_width() * RENDER_INTERPOLATION_STEP))
+		# 		# print("row: " + str(row))
+		# 		# print("column_count: " + str(column_count))
+		# 		point_list = [points[point1_index], points[point2_index], points[point3_index], points[point4_index]]
+		# 		result = bilinear_interpolation(x, y, point_list)
+		# 		scaled_result = result*255
+		# 		if(scaled_result < 0):
+		# 			scaled_result = 0
+		# 		if(scaled_result > 255):
+		# 			scaled_result = 255
+		# 		pixels[x, y] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
 
-		screen.fill((255, 255, 255))
-		screen.blit(surface, (0, 0))
+		# del pixels
 
-		#drawing data points
-		for i in range(len(df.index)):
-			x = int(df.loc[i]["Weight"] + weight_mean)
-			y = int(df.loc[i]["Height"] + height_mean)
-			color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
-			pygame.draw.circle(screen, color, (x, y), 1)
-			pygame.display.flip()
+		# screen.fill((255, 255, 255))
+		# screen.blit(surface, (0, 0))
 
-		#reacting to events, so window can be closed
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				sys.exit()
+		# #drawing data points
+		# for i in range(len(df.index)):
+		# 	x = int(df.loc[i]["Weight"] + weight_mean)
+		# 	y = int(df.loc[i]["Height"] + height_mean)
+		# 	color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
+		# 	pygame.draw.circle(screen, color, (x, y), 1)
+		# 	pygame.display.flip()
+
+		# #reacting to events, so window can be closed
+		# for event in pygame.event.get():
+		# 	if event.type == pygame.QUIT:
+		# 		sys.exit()
 
 		#if minimal error goes below threshold, training stops
 		if MINIMAL_ERROR_SHUTDOWN:
 			if minimal_error < 1.0/len(df.index)/2:
 				break
+
+		# time.sleep(0.1)
 
 	print()
 	print("Minimal error: " + str(minimal_error))
@@ -326,12 +333,11 @@ df = pd.DataFrame(data, columns = ["Name", "Weight", "Height", "Gender"])
 weight_mean = center_column(df, "Weight")
 height_mean = center_column(df, "Height")
 
-#initializing pygame
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 480
-pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-surface = pygame.Surface((200, 200))
+renderer = graphics.Graphics()
+# renderer.initGLFW()
+renderer.start()
+
+time.sleep(1) #should really replace this
 
 #training
 best_network = train(df)
@@ -356,9 +362,3 @@ for j in range(len(df.index)):
 	print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
 
 print()
-
-#starting render
-while(1):
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			sys.exit()

@@ -2,7 +2,9 @@ import glfw
 import sys
 import numpy as np
 import pyrr
-import random
+# import random
+import threading
+import logging
 from OpenGL.GL import *
 
 SCR_WIDTH = 512
@@ -24,17 +26,18 @@ class Point:
 class Graphics:
 
     def __init__(self):
+        self.window = None
         self.shaderProgram = None
         self.VAO = None
         self.VBO = None
         self.EBO = None
         self.points = []
 
-        for y in range(0, SCR_HEIGHT, STEP_Y):
-            for x in range(0, SCR_WIDTH, STEP_X):
-                result = random.random()
-                new_point = Point(x, y, result)
-                self.points.append(new_point)
+        # for y in range(0, SCR_HEIGHT, STEP_Y):
+        #     for x in range(0, SCR_WIDTH, STEP_X):
+        #         result = random.random()
+        #         new_point = Point(x, y, result)
+        #         self.points.append(new_point)
 
     def setFloat(self, name, value):
         glUniform1f(glGetUniformLocation(self.shaderProgram, name), value);
@@ -123,15 +126,18 @@ class Graphics:
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
         self.setMat4("projection", orthoMatrix)
         self.setVec3("color", 1.0, 0.0, 0.0)
+        print(self.points)
         for i in range(len(self.points)):
             point = self.points[i]
             self.setFloat("points[" + str(i) + "].x", point.x)
             self.setFloat("points[" + str(i) + "].y", point.y)
             self.setFloat("points[" + str(i) + "].value", point.value)
 
-    def init(self):
+    def initOpenGL(self):
 
+        print("Compiling shaders")
         self.compileShaders()
+        print("Initializing geometry")
         self.initGeometry()
 
     def render(self):
@@ -139,11 +145,20 @@ class Graphics:
         # glEnableClientState(GL_VERTEX_ARRAY)
         # print(glGetError())
 
+        print("RENDERING")
+
         glClearColor(0.2, 0.3, 0.3, 1.0)
         glClear(GL_COLOR_BUFFER_BIT)
 
         glUseProgram(self.shaderProgram)
         glBindVertexArray(self.VAO)
+
+        for i in range(len(self.points)):
+            point = self.points[i]
+            self.setFloat("points[" + str(i) + "].x", point.x)
+            self.setFloat("points[" + str(i) + "].y", point.y)
+            self.setFloat("points[" + str(i) + "].value", point.value)
+
         # glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0)
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6)
 
@@ -154,32 +169,51 @@ class Graphics:
     	if(glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS):
     	    glfw.set_window_should_close(window, True)
 
-    def main(self):
+    def mainCycle(self):
+
+        print("Entering cycle")
+
+        while not glfw.window_should_close(self.window):
+
+            self.processInput(self.window)
+
+            # logging.info("Rendering")
+            self.render()
+
+            glfw.swap_buffers(self.window)
+            glfw.poll_events()
+
+        glfw.terminate()
+
+    def initGLFW(self, name):
+
+        print("initGLFW called")
+
         glfw.init()
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3);
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3);
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-        window = glfw.create_window(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", None, None);
-        if not window:
+        print("Creating window")
+        self.window = glfw.create_window(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", None, None)
+        if not self.window:
             print("Failed to create GLFW window")
             glfw.terminate();
             sys.exit()
-        glfw.make_context_current(window);
-        glfw.set_framebuffer_size_callback(window, framebuffer_size_callback)
+        print("Setting call backs")
+        glfw.make_context_current(self.window);
+        glfw.set_framebuffer_size_callback(self.window, framebuffer_size_callback)
 
-        self.init()
+        print("Initializing OpenGL")
+        self.initOpenGL()
 
-        while not glfw.window_should_close(window):
+        self.mainCycle()
 
-            self.processInput(window)
+    def start(self):
 
-            self.render()
-
-            glfw.swap_buffers(window)
-            glfw.poll_events()
-
-        glfw.terminate()
-
-graphics = Graphics()
-graphics.main()
+        print("Creating thread")
+        thread = threading.Thread(target=self.initGLFW, args=(1,))
+        print("Staring thread")
+        thread.start()
+        print("Thread started")
+        # thread.join()
