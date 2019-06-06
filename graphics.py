@@ -3,8 +3,7 @@ import sys
 import numpy as np
 import pyrr
 # import random
-import threading
-import logging
+import multiprocessing
 from OpenGL.GL import *
 
 SCR_WIDTH = 512
@@ -14,14 +13,17 @@ ARR_SIZE_Y = 4
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
 
+
 def framebuffer_size_callback(window, width, height):
     glViewport(0, 0, width, height)
+
 
 class Point:
     def __init__(self, x, y, value):
         self.x = x
         self.y = y
         self.value = value
+
 
 class Graphics:
 
@@ -40,7 +42,7 @@ class Graphics:
         #         self.points.append(new_point)
 
     def setFloat(self, name, value):
-        glUniform1f(glGetUniformLocation(self.shaderProgram, name), value);
+        glUniform1f(glGetUniformLocation(self.shaderProgram, name), value)
 
     def setVec3(self, name, v1, v2, v3):
         glUniform3f(glGetUniformLocation(self.shaderProgram, name), v1, v2, v3)
@@ -49,7 +51,7 @@ class Graphics:
         glUniformMatrix4fv(glGetUniformLocation(self.shaderProgram, name), 1, GL_FALSE, value)
 
     def setArray(self, name, size, value):
-        glUniform1fv(glGetUniformLocation(self.shaderProgram, name), size, value);
+        glUniform1fv(glGetUniformLocation(self.shaderProgram, name), size, value)
 
     def compile_shader(self, shader_source, shader_type):
         shader = glCreateShader(shader_type)
@@ -73,7 +75,7 @@ class Graphics:
         glLinkProgram(shaderProgram)
         success = glGetProgramiv(shaderProgram, GL_LINK_STATUS)
         if not success:
-            infolog = glGetShaderInfoLog(shaderProgram);
+            infolog = glGetShaderInfoLog(shaderProgram)
             print(name + " linking failed")
             print(infolog)
         return shaderProgram
@@ -97,10 +99,10 @@ class Graphics:
         # ], dtype=np.float32)
 
         vertices = np.array([
-                  0.0,        0.0, 0.0,
-            SCR_WIDTH,        0.0, 0.0,
+            0.0, 0.0, 0.0,
+            SCR_WIDTH, 0.0, 0.0,
             SCR_WIDTH, SCR_HEIGHT, 0.0,
-                  0.0, SCR_HEIGHT, 0.0,
+            0.0, SCR_HEIGHT, 0.0,
             #  0.5,  0.5, 0.0,    0.0, 0.0, 1.0,    1.0, 1.0,
             #  0.5, -0.5, 0.0,    1.0, 0.0, 0.0,    1.0, 0.0,
             # -0.5, -0.5, 0.0,    0.0, 1.0, 0.0,    0.0, 0.0,
@@ -109,18 +111,18 @@ class Graphics:
 
         # indices = np.array([0, 1, 3, 1, 2, 3], dtype=np.int32)
 
-        self.VAO = glGenVertexArrays(1);
-        self.VBO = glGenBuffers(1);
+        self.VAO = glGenVertexArrays(1)
+        self.VBO = glGenBuffers(1)
         # self.EBO = glGenBuffers(1)
 
-        glBindVertexArray(self.VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, self.VBO);
+        glBindVertexArray(self.VAO)
+        glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
         # glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.EBO)
 
-        glBufferData(GL_ARRAY_BUFFER, len(vertices)*4, vertices, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, len(vertices) * 4, vertices, GL_STATIC_DRAW)
         # glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(indices)*4, indices, GL_STATIC_DRAW)
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None) #in case of problems, try changing stride
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)  # in case of problems, try changing stride
         glEnableVertexAttribArray(0)
 
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
@@ -166,8 +168,8 @@ class Graphics:
         # print(glGetError())
 
     def processInput(self, window):
-    	if(glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS):
-    	    glfw.set_window_should_close(window, True)
+        if(glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS):
+            glfw.set_window_should_close(window, True)
 
     def mainCycle(self):
 
@@ -190,18 +192,18 @@ class Graphics:
         print("initGLFW called")
 
         glfw.init()
-        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3);
-        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3);
-        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
         print("Creating window")
         self.window = glfw.create_window(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", None, None)
         if not self.window:
             print("Failed to create GLFW window")
-            glfw.terminate();
+            glfw.terminate()
             sys.exit()
         print("Setting call backs")
-        glfw.make_context_current(self.window);
+        glfw.make_context_current(self.window)
         glfw.set_framebuffer_size_callback(self.window, framebuffer_size_callback)
 
         print("Initializing OpenGL")
@@ -211,9 +213,9 @@ class Graphics:
 
     def start(self):
 
-        print("Creating thread")
-        thread = threading.Thread(target=self.initGLFW, args=(1,))
-        print("Staring thread")
-        thread.start()
-        print("Thread started")
+        print("Creating process")
+        process = multiprocessing.Process(target=self.initGLFW, args=(1,))
+        print("Staring process")
+        process.start()
+        print("Process started")
         # thread.join()
