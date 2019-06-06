@@ -18,6 +18,9 @@ CLIP_VALUES = False
 PRINT_WEIGHTS = False
 RENDER_INTERPOLATION_STEP = 5
 
+DATA_MAX_X = 200.0
+DATA_MAX_Y = 200.0
+
 last_id = 0
 
 
@@ -199,10 +202,11 @@ def train(df):
         # pixels = pygame.surfarray.pixels2d(surface)
         points = []
         # collecting data points
-        scaleFactor = 512.0 / 200.0
-        for y in range(0, 512, 128):
-            for x in range(0, 512, 128):
-                result = best_network.feedforward([int((x - weight_mean) / scaleFactor), int((y - height_mean) / scaleFactor)])
+        scaleFactorX = graphics.SCR_WIDTH / DATA_MAX_X
+        scaleFactorY = graphics.SCR_HEIGHT / DATA_MAX_Y
+        for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
+            for x in range(0, graphics.SCR_WIDTH, graphics.STEP_X):
+                result = best_network.feedforward([int(x / scaleFactorX - weight_mean), int(y / scaleFactorY - height_mean)])
                 new_point = graphics.Point(x, y, result)
                 points.append(new_point)
         points_queue.put(points)

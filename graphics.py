@@ -8,8 +8,8 @@ from OpenGL.GL import *
 
 SCR_WIDTH = 512
 SCR_HEIGHT = 512
-ARR_SIZE_X = 4
-ARR_SIZE_Y = 4
+ARR_SIZE_X = 16
+ARR_SIZE_Y = 16
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
 
@@ -35,11 +35,8 @@ class Graphics:
         self.EBO = None
         self.points_queue = None
 
-        # for y in range(0, SCR_HEIGHT, STEP_Y):
-        #     for x in range(0, SCR_WIDTH, STEP_X):
-        #         result = random.random()
-        #         new_point = Point(x, y, result)
-        #         self.points.append(new_point)
+    def setInt(self, name, value):
+        glUniform1i(glGetUniformLocation(self.shaderProgram, name), value)
 
     def setFloat(self, name, value):
         glUniform1f(glGetUniformLocation(self.shaderProgram, name), value)
@@ -92,21 +89,11 @@ class Graphics:
 
     def initGeometry(self):
 
-        # vertices = np.array([
-        #     -1.0, -1.0, 0.0,
-        #      1.0, -1.0, 0.0,
-        #      0.0,  1.0, 0.0
-        # ], dtype=np.float32)
-
         vertices = np.array([
             0.0, 0.0, 0.0,
             SCR_WIDTH, 0.0, 0.0,
             SCR_WIDTH, SCR_HEIGHT, 0.0,
             0.0, SCR_HEIGHT, 0.0,
-            #  0.5,  0.5, 0.0,    0.0, 0.0, 1.0,    1.0, 1.0,
-            #  0.5, -0.5, 0.0,    1.0, 0.0, 0.0,    1.0, 0.0,
-            # -0.5, -0.5, 0.0,    0.0, 1.0, 0.0,    0.0, 0.0,
-            # -0.5,  0.5, 0.0,    1.0, 1.0, 0.0,    0.0, 1.0
         ], dtype=np.float32)
 
         # indices = np.array([0, 1, 3, 1, 2, 3], dtype=np.int32)
@@ -128,6 +115,9 @@ class Graphics:
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
         self.setMat4("projection", orthoMatrix)
         self.setVec3("color", 1.0, 0.0, 0.0)
+        self.setInt("column_count", int(SCR_WIDTH / STEP_X))
+        self.setInt("stepX", STEP_X)
+        self.setInt("stepY", STEP_Y)
 
     def initOpenGL(self):
 

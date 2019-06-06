@@ -10,12 +10,16 @@ struct Point {
 	float value;
 };
 
-#define ARRAY_SIZE 16
-#define SCR_WIDTH 512
-#define SCR_HEIGHT 512
-#define STEP 128
+#define MAX_ARRAY_SIZE 340 //by some reason, 341 and more gives error after compilation
+
+uniform int column_count;
+uniform int stepX;
+uniform int stepY;
 uniform vec3 color;
-uniform Point points[ARRAY_SIZE];
+// layout (std140) uniform Block1 {
+// 	Point points[MAX_ARRAY_SIZE];
+// };
+uniform Point points[MAX_ARRAY_SIZE];
 
 float bilinear(float x, float y, Point p1, Point p2, Point p3, Point p4) {
 
@@ -39,9 +43,8 @@ float bilinear(float x, float y, Point p1, Point p2, Point p3, Point p4) {
 void main()
 {
 
-	int column = int(pos.x / STEP);
- 	int row = int(pos.y / STEP);
-	int column_count = int(SCR_WIDTH / STEP);
+	int column = int(pos.x / stepX);
+ 	int row = int(pos.y / stepY);
 	int point1_index = row*column_count + column;
 	int point2_index = point1_index + 1;
 	int point3_index = (row + 1)*column_count + column;
