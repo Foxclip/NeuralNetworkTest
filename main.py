@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import math
 import graphics
+import multiprocessing
 
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
@@ -119,39 +120,6 @@ def center_column(data_frame, column_name):
     return mean
 
 
-def bilinear_interpolation(x, y, points):
-    '''Interpolate (x,y) from values associated with four points.
-
-    The four points are a list of four triplets:  (x, y, value).
-    The four points can be in any order.  They should form a rectangle.
-
-        >>> bilinear_interpolation(12, 5.5,
-        ...                        [(10, 4, 100),
-        ...                         (20, 4, 200),
-        ...                         (10, 6, 150),
-        ...                         (20, 6, 300)])
-        165.0
-
-    '''
-    # See formula at:  http://en.wikipedia.org/wiki/Bilinear_interpolation
-
-    points = sorted(points)               # order points by x, then by y
-    (x1, y1, q11), (_x1, y2, q12), (x2, _y1, q21), (_x2, _y2, q22) = points
-
-    if x1 != _x1 or x2 != _x2 or y1 != _y1 or y2 != _y2:
-        raise ValueError('points do not form a rectangle')
-    if not x1 <= x <= x2 or not y1 <= y <= y2:
-        print("x: " + str(x))
-        print("y: " + str(y))
-        print("points: " + str(points))
-        raise ValueError('(x, y) not within the rectangle')
-
-    return (q11 * (x2 - x) * (y2 - y) +
-            q21 * (x - x1) * (y2 - y) +
-            q12 * (x2 - x) * (y - y1) +
-            q22 * (x - x1) * (y - y1)) / ((x2 - x1) * (y2 - y1) + 0.0)
-
-
 def train(df):
 
     # creating networks
@@ -237,49 +205,7 @@ def train(df):
                 result = best_network.feedforward([int((x - weight_mean) / scaleFactor), int((y - height_mean) / scaleFactor)])
                 new_point = graphics.Point(x, y, result)
                 points.append(new_point)
-        renderer.points = points
-
-        # #drawing interpolated points
-        # for y in range(surface.get_height() - RENDER_INTERPOLATION_STEP - 1):
-        #   for x in range(surface.get_width() - RENDER_INTERPOLATION_STEP - 1):
-        #       column = int(float(x) / RENDER_INTERPOLATION_STEP)
-        #       row = int(float(y) / RENDER_INTERPOLATION_STEP)
-        #       column_count = int(surface.get_width() / RENDER_INTERPOLATION_STEP)
-        #       point1_index = row*column_count + column
-        #       point2_index = point1_index + 1
-        #       point3_index = (row + 1)*column_count + column
-        #       point4_index = (row + 1)*column_count + column + 1
-        #       # print("x: " + str(x))
-        #       # print("y: " + str(y))
-        #       # print("column: " + str(column) + " " + str(float(x) / surface.get_width() * RENDER_INTERPOLATION_STEP))
-        #       # print("row: " + str(row))
-        #       # print("column_count: " + str(column_count))
-        #       point_list = [points[point1_index], points[point2_index], points[point3_index], points[point4_index]]
-        #       result = bilinear_interpolation(x, y, point_list)
-        #       scaled_result = result*255
-        #       if(scaled_result < 0):
-        #           scaled_result = 0
-        #       if(scaled_result > 255):
-        #           scaled_result = 255
-        #       pixels[x, y] = pygame.Color(0, int(scaled_result), int(scaled_result), int(scaled_result))
-
-        # del pixels
-
-        # screen.fill((255, 255, 255))
-        # screen.blit(surface, (0, 0))
-
-        # #drawing data points
-        # for i in range(len(df.index)):
-        #   x = int(df.loc[i]["Weight"] + weight_mean)
-        #   y = int(df.loc[i]["Height"] + height_mean)
-        #   color = pygame.Color(255, 50, 50) if df.loc[i]["Gender"] == "F" else pygame.Color(150, 150, 255)
-        #   pygame.draw.circle(screen, color, (x, y), 1)
-        #   pygame.display.flip()
-
-        # #reacting to events, so window can be closed
-        # for event in pygame.event.get():
-        #   if event.type == pygame.QUIT:
-        #       sys.exit()
+        points_queue.put(points)
 
         # if minimal error goes below threshold, training stops
         if MINIMAL_ERROR_SHUTDOWN:
@@ -351,7 +277,8 @@ if __name__ == '__main__':
 
     renderer = graphics.Graphics()
     # renderer.initGLFW()
-    renderer.start()
+    points_queue = multiprocessing.Queue()
+    renderer.start(points_queue)
 
     # training
     best_network = train(df)

@@ -33,7 +33,7 @@ class Graphics:
         self.VAO = None
         self.VBO = None
         self.EBO = None
-        self.points = []
+        self.points_queue = None
 
         # for y in range(0, SCR_HEIGHT, STEP_Y):
         #     for x in range(0, SCR_WIDTH, STEP_X):
@@ -128,12 +128,6 @@ class Graphics:
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
         self.setMat4("projection", orthoMatrix)
         self.setVec3("color", 1.0, 0.0, 0.0)
-        print(self.points)
-        for i in range(len(self.points)):
-            point = self.points[i]
-            self.setFloat("points[" + str(i) + "].x", point.x)
-            self.setFloat("points[" + str(i) + "].y", point.y)
-            self.setFloat("points[" + str(i) + "].value", point.value)
 
     def initOpenGL(self):
 
@@ -147,19 +141,22 @@ class Graphics:
         # glEnableClientState(GL_VERTEX_ARRAY)
         # print(glGetError())
 
-        print("RENDERING")
-
         glClearColor(0.2, 0.3, 0.3, 1.0)
         glClear(GL_COLOR_BUFFER_BIT)
 
         glUseProgram(self.shaderProgram)
         glBindVertexArray(self.VAO)
 
-        for i in range(len(self.points)):
-            point = self.points[i]
-            self.setFloat("points[" + str(i) + "].x", point.x)
-            self.setFloat("points[" + str(i) + "].y", point.y)
-            self.setFloat("points[" + str(i) + "].value", point.value)
+        try:
+            points = self.points_queue.get(block=False)
+            for i in range(len(points)):
+                point = points[i]
+                self.setFloat("points[" + str(i) + "].x", point.x)
+                self.setFloat("points[" + str(i) + "].y", point.y)
+                self.setFloat("points[" + str(i) + "].value", point.value)
+        except Exception as e:
+            if type(e).__name__ != "Empty":
+                print(e)
 
         # glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0)
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6)
@@ -187,9 +184,12 @@ class Graphics:
 
         glfw.terminate()
 
-    def initGLFW(self, name):
+    def initGLFW(self, name, queue):
 
         print("initGLFW called")
+
+        self.points_queue = queue
+        print(f"Points queue received: {queue}; Set: {self.points_queue}")
 
         glfw.init()
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
@@ -211,10 +211,10 @@ class Graphics:
 
         self.mainCycle()
 
-    def start(self):
+    def start(self, queue):
 
         print("Creating process")
-        process = multiprocessing.Process(target=self.initGLFW, args=(1,))
+        process = multiprocessing.Process(target=self.initGLFW, args=(1, queue))
         print("Staring process")
         process.start()
         print("Process started")
