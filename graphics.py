@@ -4,12 +4,13 @@ import numpy as np
 import pyrr
 # import random
 import multiprocessing
+import ctypes
 from OpenGL.GL import *
 
 SCR_WIDTH = 512
 SCR_HEIGHT = 512
-ARR_SIZE_X = 16
-ARR_SIZE_Y = 16
+ARR_SIZE_X = 128
+ARR_SIZE_Y = 128
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
 
@@ -106,39 +107,24 @@ class Graphics:
 
         ], dtype=np.float32)
 
-        # indices = np.array([0, 1, 3, 1, 2, 3], dtype=np.int32)
-
-        # texture
-        data = [0.5] * STEP_X * STEP_Y
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        glTexImage2D(
-            GL_TEXTURE_2D,      # target
-            0,                  # mipmap level
-            GL_RED,             # internal format
-            STEP_X,             # width
-            STEP_Y,             # height
-            0,                  # must be zero
-            GL_RED,             # data format
-            GL_FLOAT,           # data type, try GL_FLOAT in case of problems
-            data                # pixel data
-        )
-        glGenerateMipmap(GL_TEXTURE_2D)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 
         self.VAO = glGenVertexArrays(1)
         self.VBO = glGenBuffers(1)
-        # self.EBO = glGenBuffers(1)
 
         glBindVertexArray(self.VAO)
         glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
-        # glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.EBO)
 
         glBufferData(GL_ARRAY_BUFFER, len(vertices) * 4, vertices, GL_STATIC_DRAW)
-        # glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(indices)*4, indices, GL_STATIC_DRAW)
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, None)  # in case of problems, try changing stride
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, None)
         glEnableVertexAttribArray(0)
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, 3 * 4)
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(3 * 4))
         glEnableVertexAttribArray(1)
 
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
@@ -154,9 +140,6 @@ class Graphics:
 
     def render(self):
 
-        # glEnableClientState(GL_VERTEX_ARRAY)
-        # print(glGetError())
-
         glClearColor(0.2, 0.3, 0.3, 1.0)
         glClear(GL_COLOR_BUFFER_BIT)
 
@@ -165,21 +148,30 @@ class Graphics:
         glBindVertexArray(self.VAO)
 
         try:
+
             points = self.points_queue.get(block=False)
+            data = []
             for i in range(len(points)):
-                point = points[i]
-                self.setFloat("points[" + str(i) + "].x", point.x)
-                self.setFloat("points[" + str(i) + "].y", point.y)
-                self.setFloat("points[" + str(i) + "].value", point.value)
+                data.append(points[i].value)
+            glBindTexture(GL_TEXTURE_2D, self.texture)
+            glTexImage2D(
+                GL_TEXTURE_2D,      # target
+                0,                  # mipmap level
+                GL_RED,             # internal format
+                ARR_SIZE_X,         # width
+                ARR_SIZE_Y,         # height
+                0,                  # must be zero
+                GL_RED,             # data format
+                GL_FLOAT,           # data type, try GL_FLOAT in case of problems
+                data                # pixel data
+            )
+            glGenerateMipmap(GL_TEXTURE_2D)
+
         except Exception as e:
             if type(e).__name__ != "Empty":
                 print(e)
 
-        # glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0)
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6)
-
-        # glDisableClientState(GL_VERTEX_ARRAY)
-        # print(glGetError())
 
     def processInput(self, window):
         if(glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS):

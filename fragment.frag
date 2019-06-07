@@ -61,6 +61,8 @@ void main()
 
 	// FragColor = vec4(color, 1.0);
     // FragColor = vec4(vec3(result), 1.0);
-    FragColor = texture(texture1, TexCoord);
+    FragColor = vec4(vec3(texture(texture1, TexCoord).r), 1.0);
+    // FragColor = vec4(TexCoord, 0.0, 1.0);
+    // FragColor = vec4(pos, 1.0);
     // FragColor = vec4(pos, 1.0);
 }
