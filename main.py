@@ -9,7 +9,7 @@ POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1
-ITERATIONS = 1000
+ITERATIONS = 100
 MINIMAL_ERROR_SHUTDOWN = False
 
 HIDDEN_LAYER_NEURONS = 1
@@ -135,7 +135,7 @@ def train(df):
 
     for iteration in range(ITERATIONS):
 
-        print("Generation " + str(iteration + 1) + " " + str(minimal_error))
+        print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
 
         if(PRINT_WEIGHTS):
             for i in range(POPULATION_SIZE):
@@ -219,7 +219,6 @@ def train(df):
         # time.sleep(0.1)
 
     print()
-    print("Minimal error: " + str(minimal_error))
 
     return generation[0]
 

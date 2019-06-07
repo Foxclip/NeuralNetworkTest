@@ -120,10 +120,7 @@ class Graphics:
         self.setInt("stepY", STEP_Y)
 
     def initOpenGL(self):
-
-        print("Compiling shaders")
         self.compileShaders()
-        print("Initializing geometry")
         self.initGeometry()
 
     def render(self):
@@ -160,13 +157,9 @@ class Graphics:
 
     def mainCycle(self):
 
-        print("Entering cycle")
-
         while not glfw.window_should_close(self.window):
 
             self.processInput(self.window)
-
-            # logging.info("Rendering")
             self.render()
 
             glfw.swap_buffers(self.window)
@@ -176,36 +169,27 @@ class Graphics:
 
     def initGLFW(self, name, queue):
 
-        print("initGLFW called")
-
         self.points_queue = queue
-        print(f"Points queue received: {queue}; Set: {self.points_queue}")
 
         glfw.init()
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
-        print("Creating window")
         self.window = glfw.create_window(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", None, None)
         if not self.window:
             print("Failed to create GLFW window")
             glfw.terminate()
             sys.exit()
-        print("Setting call backs")
+        glfw.set_window_pos(self.window, 100, 100)
         glfw.make_context_current(self.window)
         glfw.set_framebuffer_size_callback(self.window, framebuffer_size_callback)
 
-        print("Initializing OpenGL")
         self.initOpenGL()
 
         self.mainCycle()
 
     def start(self, queue):
 
-        print("Creating process")
         process = multiprocessing.Process(target=self.initGLFW, args=(1, queue))
-        print("Staring process")
         process.start()
-        print("Process started")
-        # thread.join()
