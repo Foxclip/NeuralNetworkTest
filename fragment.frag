@@ -1,6 +1,7 @@
 #version 330 core
 
 in vec3 pos;
+in vec2 TexCoord;
 
 out vec4 FragColor;
 
@@ -20,6 +21,8 @@ uniform vec3 color;
 // 	Point points[MAX_ARRAY_SIZE];
 // };
 uniform Point points[MAX_ARRAY_SIZE];
+
+uniform sampler2D texture1;
 
 float bilinear(float x, float y, Point p1, Point p2, Point p3, Point p4) {
 
@@ -57,6 +60,7 @@ void main()
 	// float result = pos.x * 1000;
 
 	// FragColor = vec4(color, 1.0);
-    FragColor = vec4(vec3(result), 1.0);
+    // FragColor = vec4(vec3(result), 1.0);
+    FragColor = texture(texture1, TexCoord);
     // FragColor = vec4(pos, 1.0);
 }

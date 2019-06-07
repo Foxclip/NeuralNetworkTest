@@ -34,6 +34,7 @@ class Graphics:
         self.VBO = None
         self.EBO = None
         self.points_queue = None
+        self.texture = None
 
     def setInt(self, name, value):
         glUniform1i(glGetUniformLocation(self.shaderProgram, name), value)
@@ -90,13 +91,39 @@ class Graphics:
     def initGeometry(self):
 
         vertices = np.array([
+
             0.0, 0.0, 0.0,
+            0.0, 0.0,
+
             SCR_WIDTH, 0.0, 0.0,
+            1.0, 0.0,
+
             SCR_WIDTH, SCR_HEIGHT, 0.0,
+            1.0, 1.0,
+
             0.0, SCR_HEIGHT, 0.0,
+            0.0, 1.0
+
         ], dtype=np.float32)
 
         # indices = np.array([0, 1, 3, 1, 2, 3], dtype=np.int32)
+
+        # texture
+        data = [0.5] * STEP_X * STEP_Y
+        self.texture = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, self.texture)
+        glTexImage2D(
+            GL_TEXTURE_2D,      # target
+            0,                  # mipmap level
+            GL_RED,             # internal format
+            STEP_X,             # width
+            STEP_Y,             # height
+            0,                  # must be zero
+            GL_RED,             # data format
+            GL_FLOAT,           # data type, try GL_FLOAT in case of problems
+            data                # pixel data
+        )
+        glGenerateMipmap(GL_TEXTURE_2D)
 
         self.VAO = glGenVertexArrays(1)
         self.VBO = glGenBuffers(1)
@@ -109,8 +136,10 @@ class Graphics:
         glBufferData(GL_ARRAY_BUFFER, len(vertices) * 4, vertices, GL_STATIC_DRAW)
         # glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(indices)*4, indices, GL_STATIC_DRAW)
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)  # in case of problems, try changing stride
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, None)  # in case of problems, try changing stride
         glEnableVertexAttribArray(0)
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, 3 * 4)
+        glEnableVertexAttribArray(1)
 
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
         self.setMat4("projection", orthoMatrix)
@@ -132,6 +161,7 @@ class Graphics:
         glClear(GL_COLOR_BUFFER_BIT)
 
         glUseProgram(self.shaderProgram)
+        glBindTexture(GL_TEXTURE_2D, self.texture)
         glBindVertexArray(self.VAO)
 
         try:
