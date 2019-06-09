@@ -15,12 +15,24 @@ ARR_SIZE_Y = 16
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
 CIRCLE_VERTEX_COUNT = 16
+CIRCLE_RADIUS = 5.0
+
+DATA_MAX_X = 200.0
+DATA_MAX_Y = 200.0
 
 FLOAT_SIZE = 4
 
 
 def framebuffer_size_callback(window, width, height):
     glViewport(0, 0, width, height)
+
+
+class Point:
+
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
 
 
 class Graphics:
@@ -34,6 +46,7 @@ class Graphics:
         self.circleVAO = None
         self.circleVBO = None
         self.points_queue = None
+        self.data_points = None
         self.texture = None
         self.rectangleShader = None
         self.circleShader = None
@@ -135,13 +148,14 @@ class Graphics:
 
     def initCircle(self):
 
-        vertices = np.array([], dtype=np.float32)
+        vertices = []
         for i in range(CIRCLE_VERTEX_COUNT):
             angle = float(i) / CIRCLE_VERTEX_COUNT * 360
             x = math.cos(angle * math.pi / 180)
             y = math.sin(angle * math.pi / 180)
-            vertices = np.append(vertices, [x, y])
-        # print(vertices)
+            vertices.append(x)
+            vertices.append(y)
+        vertices = np.array(vertices, dtype=np.float32)
 
         self.circleVAO = glGenVertexArrays(1)
         self.circleVBO = glGenBuffers(1)
@@ -159,11 +173,14 @@ class Graphics:
         self.initCircle()
 
     def setUniforms(self):
+
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
+
+        glUseProgram(self.rectangleShader)
         self.setMat4(self.rectangleShader, "projection", orthoMatrix)
-        self.setVec3(self.circleShader, "color", 1.0, 0.0, 0.0)
-        modelMatrix = pyrr.matrix44.create_from_scale([100, 100, 1.0], dtype=np.float32)
-        self.setMat4(self.circleShader, "model", modelMatrix)
+
+        glUseProgram(self.circleShader)
+        self.setMat4(self.circleShader, "projection", orthoMatrix)
 
     def initOpenGL(self):
         self.compileShaders()
@@ -199,11 +216,19 @@ class Graphics:
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6)
 
-    def drawCircle(self):
+    def drawCircle(self, point):
 
         glUseProgram(self.circleShader)
         glBindVertexArray(self.circleVAO)
 
+        scaleFactorX = SCR_WIDTH / DATA_MAX_X
+        scaleFactorY = SCR_HEIGHT / DATA_MAX_Y
+
+        scaleMatrix = pyrr.matrix44.create_from_scale([CIRCLE_RADIUS, CIRCLE_RADIUS, 1.0], dtype=np.float32)
+        translationMatrix = pyrr.matrix44.create_from_translation([point.x * scaleFactorX, point.y * scaleFactorY, 0.0], dtype=np.float32)
+        modelMatrix = pyrr.matrix44.multiply(scaleMatrix, translationMatrix)
+        self.setVec3(self.circleShader, "color", *point.color)
+        self.setMat4(self.circleShader, "model", modelMatrix)
         glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_VERTEX_COUNT)
 
     def render(self):
@@ -212,7 +237,9 @@ class Graphics:
         glClear(GL_COLOR_BUFFER_BIT)
 
         self.drawRectangle()
-        self.drawCircle()
+
+        for point in self.data_points:
+            self.drawCircle(point)
 
     def processInput(self, window):
         if(glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS):
@@ -252,6 +279,7 @@ class Graphics:
 
         self.mainCycle()
 
-    def start(self, queue):
+    def start(self, queue, data_points):
+        self.data_points = data_points
         process = multiprocessing.Process(target=self.initGLFW, args=(1, queue))
         process.start()

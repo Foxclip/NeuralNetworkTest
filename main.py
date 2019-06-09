@@ -7,7 +7,7 @@ import multiprocessing
 
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
-MUTATION_POWER = 100
+MUTATION_POWER = 1
 MAX_MUTATION = 1000
 ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
@@ -18,9 +18,6 @@ CLIP_VALUES = False
 PRINT_WEIGHTS = False
 RENDER_INTERPOLATION_STEP = 5
 
-DATA_MAX_X = 200.0
-DATA_MAX_Y = 200.0
-
 last_id = 0
 
 
@@ -29,7 +26,7 @@ def increase_last_id():
     last_id += 1
 
 
-def sigmoid(x):
+def sigmoid_exp(x):
     return 1 / (1 + np.exp(-x))
 
 
@@ -37,7 +34,7 @@ def relu(x):
     return max(0, x)
 
 
-def tanh(x):
+def sigmoid_tanh(x):
     return (math.tanh(x) + 1) / 2
 
 
@@ -50,7 +47,7 @@ class Neuron:
 
     def feedforward(self, inputs):
         total = np.dot(self.weights, inputs) + self.bias
-        output = sigmoid(total)
+        output = sigmoid_tanh(total)
         return output
 
     def mutate(self):
@@ -203,11 +200,11 @@ def train(df):
         # rendering graph
         best_network = generation[0]
         points = []
-        scaleFactorX = graphics.SCR_WIDTH / DATA_MAX_X
-        scaleFactorY = graphics.SCR_HEIGHT / DATA_MAX_Y
+        scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+        scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
         for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
             for x in range(0, graphics.SCR_WIDTH, graphics.STEP_X):
-                result = best_network.feedforward([int(x / scaleFactorX - weight_mean), int(y / scaleFactorY - height_mean)])
+                result = best_network.feedforward([int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])
                 points.append(result)
         points_queue.put(points)
 
@@ -242,10 +239,10 @@ if __name__ == '__main__':
         ["Garreth", 177, 75, "M"],
         ["Heather", 135, 55, "F"],
 
-        # ["Short man 1", 75, 30, "M"],
-        # ["Short man 2", 70, 25, "M"],
-        # ["Short man 3", 80, 28, "M"],
-        # ["Short man 4", 90, 50, "M"],
+        ["Short man 1", 75, 30, "M"],
+        ["Short man 2", 70, 25, "M"],
+        ["Short man 3", 80, 28, "M"],
+        ["Short man 4", 90, 50, "M"],
         # ["Short heavy man 1", 75, 150, "M"],
         # ["Short heavy man 2", 70, 125, "M"],
         # ["Short heavy man 3", 80, 134, "M"],
@@ -285,7 +282,15 @@ if __name__ == '__main__':
     renderer = graphics.Graphics()
     # renderer.initGLFW()
     points_queue = multiprocessing.Queue()
-    renderer.start(points_queue)
+
+    data_points = []
+    weight_column = list(df["Weight"])
+    height_column = list(df["Height"])
+    for i in range(len(weight_column)):
+        point_color = (0, 0, 255) if df.loc[i]["Gender"] == "M" else (255, 0, 0)
+        new_point = graphics.Point(weight_column[i] + weight_mean, height_column[i] + height_mean, point_color)
+        data_points.append(new_point)
+    renderer.start(points_queue, data_points)
 
     # training
     best_network = train(df)
