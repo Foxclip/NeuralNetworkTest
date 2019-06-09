@@ -5,6 +5,7 @@ import pyrr
 # import random
 import multiprocessing
 import ctypes
+import math
 from OpenGL.GL import *
 
 SCR_WIDTH = 512
@@ -13,6 +14,9 @@ ARR_SIZE_X = 16
 ARR_SIZE_Y = 16
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
+CIRCLE_VERTEX_COUNT = 16
+
+FLOAT_SIZE = 4
 
 
 def framebuffer_size_callback(window, width, height):
@@ -27,25 +31,29 @@ class Graphics:
         self.VAO = None
         self.VBO = None
         self.EBO = None
+        self.circleVAO = None
+        self.circleVBO = None
         self.points_queue = None
         self.texture = None
+        self.rectangleShader = None
+        self.circleShader = None
 
-    def setInt(self, name, value):
-        glUniform1i(glGetUniformLocation(self.shaderProgram, name), value)
+    def setInt(self, shader, name, value):
+        glUniform1i(glGetUniformLocation(shader, name), value)
 
-    def setFloat(self, name, value):
-        glUniform1f(glGetUniformLocation(self.shaderProgram, name), value)
+    def setFloat(self, shader, name, value):
+        glUniform1f(glGetUniformLocation(shader, name), value)
 
-    def setVec3(self, name, v1, v2, v3):
-        glUniform3f(glGetUniformLocation(self.shaderProgram, name), v1, v2, v3)
+    def setVec3(self, shader, name, v1, v2, v3):
+        glUniform3f(glGetUniformLocation(shader, name), v1, v2, v3)
 
-    def setMat4(self, name, value):
-        glUniformMatrix4fv(glGetUniformLocation(self.shaderProgram, name), 1, GL_FALSE, value)
+    def setMat4(self, shader, name, value):
+        glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE, value)
 
-    def setArray(self, name, size, value):
-        glUniform1fv(glGetUniformLocation(self.shaderProgram, name), size, value)
+    def setArray(self, shader, name, size, value):
+        glUniform1fv(glGetUniformLocation(shader, name), size, value)
 
-    def compile_shader(self, shader_source, shader_type):
+    def compileShader(self, shader_source, shader_type):
         shader = glCreateShader(shader_type)
         glShaderSource(shader, shader_source)
         glCompileShader(shader)
@@ -60,7 +68,7 @@ class Graphics:
             sys.exit()
         return shader
 
-    def create_shader_program(self, vertexShader, fragmentShader, name):
+    def linkShaderProgram(self, vertexShader, fragmentShader, name):
         shaderProgram = glCreateProgram()
         glAttachShader(shaderProgram, vertexShader)
         glAttachShader(shaderProgram, fragmentShader)
@@ -72,17 +80,22 @@ class Graphics:
             print(infolog)
         return shaderProgram
 
-    def compileShaders(self):
-        vertexShaderString = open("vertex.vert", "r").read()
-        fragmentShaderString = open("fragment.frag", "r").read()
-        vertexShader = self.compile_shader(vertexShaderString, GL_VERTEX_SHADER)
-        fragmentShader = self.compile_shader(fragmentShaderString, GL_FRAGMENT_SHADER)
-        self.shaderProgram = self.create_shader_program(vertexShader, fragmentShader, "test")
-        glUseProgram(self.shaderProgram)
+    def createShader(self, name, vertexSourceFile, fragmentSourceFile):
+        vertexShaderString = open(vertexSourceFile, "r").read()
+        fragmentShaderString = open(fragmentSourceFile, "r").read()
+        vertexShader = self.compileShader(vertexShaderString, GL_VERTEX_SHADER)
+        fragmentShader = self.compileShader(fragmentShaderString, GL_FRAGMENT_SHADER)
+        shaderProgram = self.linkShaderProgram(vertexShader, fragmentShader, name)
+        glUseProgram(shaderProgram)
         glDeleteShader(vertexShader)
         glDeleteShader(fragmentShader)
+        return shaderProgram
 
-    def initGeometry(self):
+    def compileShaders(self):
+        self.rectangleShader = self.createShader("rectangle", "vertex.vert", "fragment.frag")
+        self.circleShader = self.createShader("circle", "circle.vert", "circle.frag")
+
+    def initRectangle(self):
 
         vertices = np.array([
 
@@ -113,30 +126,53 @@ class Graphics:
         glBindVertexArray(self.VAO)
         glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
 
-        glBufferData(GL_ARRAY_BUFFER, len(vertices) * 4, vertices, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, len(vertices) * FLOAT_SIZE, vertices, GL_STATIC_DRAW)
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, None)
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * FLOAT_SIZE, None)
         glEnableVertexAttribArray(0)
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(3 * 4))
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * FLOAT_SIZE, ctypes.c_void_p(3 * FLOAT_SIZE))
         glEnableVertexAttribArray(1)
 
+    def initCircle(self):
+
+        vertices = np.array([], dtype=np.float32)
+        for i in range(CIRCLE_VERTEX_COUNT):
+            angle = float(i) / CIRCLE_VERTEX_COUNT * 360
+            x = math.cos(angle * math.pi / 180)
+            y = math.sin(angle * math.pi / 180)
+            vertices = np.append(vertices, [x, y])
+        # print(vertices)
+
+        self.circleVAO = glGenVertexArrays(1)
+        self.circleVBO = glGenBuffers(1)
+
+        glBindVertexArray(self.circleVAO)
+        glBindBuffer(GL_ARRAY_BUFFER, self.circleVBO)
+
+        glBufferData(GL_ARRAY_BUFFER, len(vertices) * FLOAT_SIZE, vertices, GL_STATIC_DRAW)
+
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * FLOAT_SIZE, None)
+        glEnableVertexAttribArray(0)
+
+    def initGeometry(self):
+        self.initRectangle()
+        self.initCircle()
+
+    def setUniforms(self):
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
-        self.setMat4("projection", orthoMatrix)
-        self.setVec3("color", 1.0, 0.0, 0.0)
-        self.setInt("column_count", int(SCR_WIDTH / STEP_X))
-        self.setInt("stepX", STEP_X)
-        self.setInt("stepY", STEP_Y)
+        self.setMat4(self.rectangleShader, "projection", orthoMatrix)
+        self.setVec3(self.circleShader, "color", 1.0, 0.0, 0.0)
+        modelMatrix = pyrr.matrix44.create_from_scale([100, 100, 1.0], dtype=np.float32)
+        self.setMat4(self.circleShader, "model", modelMatrix)
 
     def initOpenGL(self):
         self.compileShaders()
         self.initGeometry()
+        self.setUniforms()
 
-    def render(self):
+    def drawRectangle(self):
 
-        glClearColor(0.2, 0.3, 0.3, 1.0)
-        glClear(GL_COLOR_BUFFER_BIT)
-
-        glUseProgram(self.shaderProgram)
+        glUseProgram(self.rectangleShader)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glBindVertexArray(self.VAO)
 
@@ -162,6 +198,21 @@ class Graphics:
                 print(e)
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 6)
+
+    def drawCircle(self):
+
+        glUseProgram(self.circleShader)
+        glBindVertexArray(self.circleVAO)
+
+        glDrawArrays(GL_TRIANGLE_FAN, 0, CIRCLE_VERTEX_COUNT)
+
+    def render(self):
+
+        glClearColor(0.2, 0.3, 0.3, 1.0)
+        glClear(GL_COLOR_BUFFER_BIT)
+
+        self.drawRectangle()
+        self.drawCircle()
 
     def processInput(self, window):
         if(glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS):

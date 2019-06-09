@@ -131,12 +131,12 @@ def train(df):
         new_network = NeuralNetwork()
         generation.append(new_network)
 
+    # minimal error starts at 1.0 at first and gets smaller later
     minimal_error = 1.0
 
     for iteration in range(ITERATIONS):
 
-        print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
-
+        # if you want to see the weights of all neurons
         if(PRINT_WEIGHTS):
             for i in range(POPULATION_SIZE):
                 print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
@@ -158,7 +158,10 @@ def train(df):
 
         # calculating fitness
         for i in range(POPULATION_SIZE):
-            generation[i].fitness = 1.0 / network_mean_errors[i]
+            if network_mean_errors[i] != 0:
+                generation[i].fitness = 1.0 / network_mean_errors[i]
+            else:
+                generation[i].fitness = float("inf")
 
         # list has to be sorted
         generation.sort(key=lambda x: x.fitness, reverse=True)
@@ -199,9 +202,7 @@ def train(df):
 
         # rendering graph
         best_network = generation[0]
-        # pixels = pygame.surfarray.pixels2d(surface)
         points = []
-        # collecting data points
         scaleFactorX = graphics.SCR_WIDTH / DATA_MAX_X
         scaleFactorY = graphics.SCR_HEIGHT / DATA_MAX_Y
         for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
@@ -210,12 +211,16 @@ def train(df):
                 points.append(result)
         points_queue.put(points)
 
+        print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
+
         # if minimal error goes below threshold, training stops
         if MINIMAL_ERROR_SHUTDOWN:
             if minimal_error < 1.0 / len(df.index) / 2:
                 break
 
-        # time.sleep(0.1)
+        # if minimal error is zero, there is no point to continue training
+        if minimal_error == 0.0:
+            break
 
     print()
 
@@ -237,22 +242,22 @@ if __name__ == '__main__':
         ["Garreth", 177, 75, "M"],
         ["Heather", 135, 55, "F"],
 
-        ["Short man 1", 75, 30, "M"],
-        ["Short man 2", 70, 25, "M"],
-        ["Short man 3", 80, 28, "M"],
-        ["Short man 4", 90, 50, "M"],
-        ["Short heavy man 1", 75, 150, "M"],
-        ["Short heavy man 2", 70, 125, "M"],
-        ["Short heavy man 3", 80, 134, "M"],
-        ["Short heavy man 4", 90, 128, "M"],
-        ["Short woman 1", 49, 78, "F"],
-        ["Short woman 2", 58, 74, "F"],
-        ["Short woman 3", 32, 90, "F"],
-        ["Short woman 4", 56, 66, "F"],
-        ["Tall light man 1", 180, 23, "M"],
-        ["Tall light man 2", 170, 20, "M"],
-        ["Tall light man 3", 175, 30, "M"],
-        ["Tall light man 4", 169, 10, "M"],
+        # ["Short man 1", 75, 30, "M"],
+        # ["Short man 2", 70, 25, "M"],
+        # ["Short man 3", 80, 28, "M"],
+        # ["Short man 4", 90, 50, "M"],
+        # ["Short heavy man 1", 75, 150, "M"],
+        # ["Short heavy man 2", 70, 125, "M"],
+        # ["Short heavy man 3", 80, 134, "M"],
+        # ["Short heavy man 4", 90, 128, "M"],
+        # ["Short woman 1", 49, 78, "F"],
+        # ["Short woman 2", 58, 74, "F"],
+        # ["Short woman 3", 32, 90, "F"],
+        # ["Short woman 4", 56, 66, "F"],
+        # ["Tall light man 1", 180, 23, "M"],
+        # ["Tall light man 2", 170, 20, "M"],
+        # ["Tall light man 3", 175, 30, "M"],
+        # ["Tall light man 4", 169, 10, "M"],
 
         # ["1", 10, 148, "F"],
         # ["1", 15, 126, "F"],
