@@ -8,11 +8,11 @@ import multiprocessing
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
-MAX_MUTATION = 1
+MAX_MUTATION = 1000
 ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
 
-HIDDEN_LAYER_NEURONS = 1
+HIDDEN_LAYER_NEURONS = 3
 CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
@@ -207,8 +207,7 @@ def train(df):
         for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
             for x in range(0, graphics.SCR_WIDTH, graphics.STEP_X):
                 result = best_network.feedforward([int(x / scaleFactorX - weight_mean), int(y / scaleFactorY - height_mean)])
-                new_point = graphics.Point(x, y, result)
-                points.append(new_point)
+                points.append(result)
         points_queue.put(points)
 
         # if minimal error goes below threshold, training stops
@@ -233,27 +232,27 @@ if __name__ == '__main__':
         ["Bob", 160, 72, "M"],
         ["Charlie", 152, 70, "M"],
         ["Diana", 120, 60, "F"],
-        # ["Eugene", 164, 69, "M"],
-        # ["Fiona", 129, 65, "F"],
-        # ["Garreth", 177, 75, "M"],
-        # ["Heather", 135, 55, "F"],
+        ["Eugene", 164, 69, "M"],
+        ["Fiona", 129, 65, "F"],
+        ["Garreth", 177, 75, "M"],
+        ["Heather", 135, 55, "F"],
 
-        # ["Short man 1", 75, 30, "M"],
-        # ["Short man 2", 70, 25, "M"],
-        # ["Short man 3", 80, 28, "M"],
-        # ["Short man 4", 90, 50, "M"],
-        # ["Short heavy man 1", 75, 150, "M"],
-        # ["Short heavy man 2", 70, 125, "M"],
-        # ["Short heavy man 3", 80, 134, "M"],
-        # ["Short heavy man 4", 90, 128, "M"],
-        # ["Short woman 1", 49, 78, "F"],
-        # ["Short woman 2", 58, 74, "F"],
-        # ["Short woman 3", 32, 90, "F"],
-        # ["Short woman 4", 56, 66, "F"],
-        # ["Tall light man 1", 180, 23, "M"],
-        # ["Tall light man 2", 170, 20, "M"],
-        # ["Tall light man 3", 175, 30, "M"],
-        # ["Tall light man 4", 169, 10, "M"],
+        ["Short man 1", 75, 30, "M"],
+        ["Short man 2", 70, 25, "M"],
+        ["Short man 3", 80, 28, "M"],
+        ["Short man 4", 90, 50, "M"],
+        ["Short heavy man 1", 75, 150, "M"],
+        ["Short heavy man 2", 70, 125, "M"],
+        ["Short heavy man 3", 80, 134, "M"],
+        ["Short heavy man 4", 90, 128, "M"],
+        ["Short woman 1", 49, 78, "F"],
+        ["Short woman 2", 58, 74, "F"],
+        ["Short woman 3", 32, 90, "F"],
+        ["Short woman 4", 56, 66, "F"],
+        ["Tall light man 1", 180, 23, "M"],
+        ["Tall light man 2", 170, 20, "M"],
+        ["Tall light man 3", 175, 30, "M"],
+        ["Tall light man 4", 169, 10, "M"],
 
         # ["1", 10, 148, "F"],
         # ["1", 15, 126, "F"],

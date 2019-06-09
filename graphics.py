@@ -9,21 +9,14 @@ from OpenGL.GL import *
 
 SCR_WIDTH = 512
 SCR_HEIGHT = 512
-ARR_SIZE_X = 128
-ARR_SIZE_Y = 128
+ARR_SIZE_X = 16
+ARR_SIZE_Y = 16
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
 
 
 def framebuffer_size_callback(window, width, height):
     glViewport(0, 0, width, height)
-
-
-class Point:
-    def __init__(self, x, y, value):
-        self.x = x
-        self.y = y
-        self.value = value
 
 
 class Graphics:
@@ -149,10 +142,7 @@ class Graphics:
 
         try:
 
-            points = self.points_queue.get(block=False)
-            data = []
-            for i in range(len(points)):
-                data.append(points[i].value)
+            data = self.points_queue.get(block=False)
             glBindTexture(GL_TEXTURE_2D, self.texture)
             glTexImage2D(
                 GL_TEXTURE_2D,      # target
@@ -212,6 +202,5 @@ class Graphics:
         self.mainCycle()
 
     def start(self, queue):
-
         process = multiprocessing.Process(target=self.initGLFW, args=(1, queue))
         process.start()
