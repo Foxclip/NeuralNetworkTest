@@ -4,6 +4,7 @@ import random
 import math
 import graphics
 import multiprocessing
+import numba
 from numba import float32
 from numba import njit, cuda, guvectorize
 import time
@@ -43,9 +44,13 @@ def relu(x):
     return max(0, x)
 
 
-@njit(parallel=PARALLEL_SIGMOID)
-# @cuda.jit
+# @njit(parallel=PARALLEL_SIGMOID)
+@cuda.jit(device=True)
 def sigmoid_tanh(x):
+    return (math.tanh(x) + 1) / 2
+
+
+def sigmoid_tanh_plain(x):
     return (math.tanh(x) + 1) / 2
 
 
@@ -165,40 +170,60 @@ def center_column(data_frame, column_name):
     return mean
 
 
-@njit(parallel=PARALLEL_NNFEEDF)
+# @njit(parallel=PARALLEL_NNFEEDF)
 # @njit(float32(float32[:], float32[:], float32[:], float32, float32, float32))
-# @cuda.jit
+@cuda.jit(device=True)
 def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
+    # print(len(hWeights))
+    # print(len(hBiases))
+    # print(len(oWeights))
+    # outputs = numba.cuda.local.array(128, float32)
+    # # m = len(hBiases)
+    # for i in range(8):
+    #     outputs[i] = 0
+        # output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
+        # outputs[i] = output
+    # o1_out = 0
+    # for i in range(len(outputs)):
+    #     o1_out = o1_out + outputs[i] * oWeights[i]
+    # o1_out = o1_out + oBias
+    # o1_out = sigmoid_tanh(o1_out)
+    # return o1_out
+    return 1.0
+
+
+def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
     # print(len(hWeights))
     # print(len(hBiases))
     # print(len(oWeights))
     outputs = []
     for i in range(len(hBiases)):
-        output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
+        output = sigmoid_tanh_plain(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
         outputs.append(output)
     o1_out = 0
     for i in range(len(outputs)):
         o1_out = o1_out + outputs[i] * oWeights[i]
     o1_out = o1_out + oBias
-    o1_out = sigmoid_tanh(o1_out)
+    o1_out = sigmoid_tanh_plain(o1_out)
     return o1_out
 
 
-@njit(parallel=PARALLEL_RENDER_GRAPH)
-# @cuda.jit
-def render_graph(hWeights, hBiases, oWeights, oBias):
-    # rendering graph
-    points = []
-    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
-    for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
-        for x in range(0, graphics.SCR_WIDTH, graphics.STEP_X):
-            result = NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
-            points.append(result)
-    return points
+# @njit(parallel=PARALLEL_RENDER_GRAPH)
+@cuda.jit
+# def render_graph(hWeights, hBiases, oWeights, oBias, points):
+def render_graph(points):
+    # # rendering graph
+    # scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+    # scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+    pos = cuda.grid(1)
+    # y = pos // graphics.ARR_SIZE_Y
+    # x = pos % graphics.ARR_SIZE_Y
+    # result = NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
+    # points[pos] = result
+    points[pos] = 1.0
 
 
-@njit(parallel=PARALLEL_CALC_ERR)
+# @njit(parallel=PARALLEL_CALC_ERR)
 # @cuda.jit
 def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases):
     network_mean_errors = []
@@ -221,7 +246,7 @@ def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBi
 
         for j in range(len(weights)):
             # result = generation[i].feedforward([weights[j], heights[j]])
-            result = NNfeedf(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])
+            result = NNfeedf_plain(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])  # change to NNfeedf
             gender = 0 if genders[j] == "M" else 1
             error = abs(result - gender)
             errors.append(error)
@@ -312,7 +337,10 @@ def train(weights, heights, genders):
 
         if(iteration % RENDER_EVERY == 0):
             best_network = generation[0]
-            points = render_graph(best_network.get_weights(), best_network.get_biases(), best_network.get_output_weights(), best_network.get_output_bias())
+            points = [0] * (graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
+            # render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.get_weights(), best_network.get_biases(), best_network.get_output_weights(), best_network.get_output_bias(), points)
+            # render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](points)
+            render_graph[128, 128](points)
             points_queue.put(points)
 
         print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
