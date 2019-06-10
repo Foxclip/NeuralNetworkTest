@@ -4,15 +4,19 @@ import random
 import math
 import graphics
 import multiprocessing
+from numba import float32
+from numba import njit
+import numba
+import time
 
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
-MUTATION_POWER = 1
+MUTATION_POWER = 100
 MAX_MUTATION = 1000
 ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
 
-HIDDEN_LAYER_NEURONS = 3
+HIDDEN_LAYER_NEURONS = 8
 CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
@@ -34,8 +38,19 @@ def relu(x):
     return max(0, x)
 
 
+@njit
 def sigmoid_tanh(x):
     return (math.tanh(x) + 1) / 2
+
+
+# @njit
+def feedf(inputs, weights, bias):
+    total = 0
+    for i in range(len(inputs)):
+        total = total + inputs[i] * weights[i]
+    total = total + bias
+    output = sigmoid_tanh(total)
+    return output
 
 
 class Neuron:
@@ -46,9 +61,14 @@ class Neuron:
         self.bias = bias
 
     def feedforward(self, inputs):
-        total = np.dot(self.weights, inputs) + self.bias
-        output = sigmoid_tanh(total)
-        return output
+        # total = np.dot(self.weights, inputs) + self.bias
+        # total = 0
+        # for i in range(len(inputs)):
+        #     total = total + inputs[i] * self.weights[i]
+        # total = total + self.bias
+        # output = sigmoid_tanh(total)
+        # return output
+        return feedf(inputs, self.weights, self.bias)
 
     def mutate(self):
         for i in range(len(self.weights)):
@@ -92,6 +112,25 @@ class NeuralNetwork:
             self.hidden_neurons[i].mutate()
         self.o1.mutate()
 
+    def get_weights(self):
+        weights = []
+        for neuron in self.hidden_neurons:
+            for weight in neuron.weights:
+                weights.append(weight)
+        return weights
+
+    def get_biases(self):
+        biases = []
+        for neuron in self.hidden_neurons:
+            biases.append(neuron.bias)
+        return biases
+
+    def get_output_weights(self):
+        return self.o1.weights
+
+    def get_output_bias(self):
+        return self.o1.bias
+
 
 def lists_average(list1, list2):
     avg_list = []
@@ -120,7 +159,70 @@ def center_column(data_frame, column_name):
     return mean
 
 
-def train(df):
+@njit
+# @njit(float32(float32[:], float32[:], float32[:], float32, float32, float32))
+def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
+    # print(len(hWeights))
+    # print(len(hBiases))
+    # print(len(oWeights))
+    outputs = []
+    for i in range(len(hBiases)):
+        output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
+        outputs.append(output)
+    o1_out = 0
+    for i in range(len(outputs)):
+        o1_out = o1_out + outputs[i] * oWeights[i]
+    o1_out = o1_out + oBias
+    o1_out = sigmoid_tanh(o1_out)
+    return o1_out
+
+
+@njit
+def render_graph(hWeights, hBiases, oWeights, oBias):
+    # rendering graph
+    points = []
+    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+    for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
+        for x in range(0, graphics.SCR_WIDTH, graphics.STEP_X):
+            result = NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
+            points.append(result)
+    return points
+
+
+@njit
+def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases):
+    network_mean_errors = []
+    for i in range(POPULATION_SIZE):
+        errors = []
+
+        weights_start = i * HIDDEN_LAYER_NEURONS * 2
+        weights_end = weights_start + HIDDEN_LAYER_NEURONS * 2
+        current_hWeights = hWeights[weights_start:weights_end]
+
+        biases_start = i * HIDDEN_LAYER_NEURONS
+        biases_end = biases_start + HIDDEN_LAYER_NEURONS
+        current_hBiases = hBiases[biases_start:biases_end]
+
+        oweights_start = i * HIDDEN_LAYER_NEURONS
+        oweights_end = oweights_start + HIDDEN_LAYER_NEURONS
+        current_oWeights = oWeights[oweights_start:oweights_end]
+
+        oBias = oBiases[i]
+
+        for j in range(len(weights)):
+            # result = generation[i].feedforward([weights[j], heights[j]])
+            result = NNfeedf(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])
+            gender = 0 if genders[j] == "M" else 1
+            error = abs(result - gender)
+            errors.append(error)
+        mean_error = np.mean(np.array(errors))
+        # print(mean_error)
+        network_mean_errors.append(mean_error)
+    return network_mean_errors
+
+
+def train(weights, heights, genders):
 
     # creating networks
     generation = []
@@ -142,16 +244,18 @@ def train(df):
                     print("    " + neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
 
         # calculating error
-        network_mean_errors = []
+        hWeights = []
+        hBiases = []
+        oWeights = []
+        oBiases = []
         for i in range(POPULATION_SIZE):
-            errors = []
-            for j in range(len(df.index)):
-                result = generation[i].feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-                gender = 0 if df.loc[j]["Gender"] == "M" else 1
-                error = abs(result - gender)
-                errors.append(error)
-            mean_error = np.mean(errors)
-            network_mean_errors.append(mean_error)
+            current_network = generation[i]
+            hWeights = hWeights + current_network.get_weights()
+            hBiases = hBiases + current_network.get_biases()
+            oWeights = oWeights + current_network.get_output_weights()
+            oBiases.append(current_network.get_output_bias())
+        network_mean_errors = calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases)
+        # print(network_mean_errors)
 
         # calculating fitness
         for i in range(POPULATION_SIZE):
@@ -197,22 +301,16 @@ def train(df):
         # swapping generations
         generation = new_generation
 
-        # rendering graph
         best_network = generation[0]
-        points = []
-        scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-        scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
-        for y in range(0, graphics.SCR_HEIGHT, graphics.STEP_Y):
-            for x in range(0, graphics.SCR_WIDTH, graphics.STEP_X):
-                result = best_network.feedforward([int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])
-                points.append(result)
+        points = render_graph(best_network.get_weights(), best_network.get_biases(), best_network.get_output_weights(), best_network.get_output_bias())
         points_queue.put(points)
 
         print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
+        # print("Generation " + str(iteration + 1) + " " + str(minimal_error))
 
         # if minimal error goes below threshold, training stops
         if MINIMAL_ERROR_SHUTDOWN:
-            if minimal_error < 1.0 / len(df.index) / 2:
+            if minimal_error < 1.0 / len(weights) / 2:
                 break
 
         # if minimal error is zero, there is no point to continue training
@@ -243,35 +341,35 @@ if __name__ == '__main__':
         ["Short man 2", 70, 25, "M"],
         ["Short man 3", 80, 28, "M"],
         ["Short man 4", 90, 50, "M"],
-        # ["Short heavy man 1", 75, 150, "M"],
-        # ["Short heavy man 2", 70, 125, "M"],
-        # ["Short heavy man 3", 80, 134, "M"],
-        # ["Short heavy man 4", 90, 128, "M"],
-        # ["Short woman 1", 49, 78, "F"],
-        # ["Short woman 2", 58, 74, "F"],
-        # ["Short woman 3", 32, 90, "F"],
-        # ["Short woman 4", 56, 66, "F"],
-        # ["Tall light man 1", 180, 23, "M"],
-        # ["Tall light man 2", 170, 20, "M"],
-        # ["Tall light man 3", 175, 30, "M"],
-        # ["Tall light man 4", 169, 10, "M"],
+        ["Short heavy man 1", 75, 150, "M"],
+        ["Short heavy man 2", 70, 125, "M"],
+        ["Short heavy man 3", 80, 134, "M"],
+        ["Short heavy man 4", 90, 128, "M"],
+        ["Short woman 1", 49, 78, "F"],
+        ["Short woman 2", 58, 74, "F"],
+        ["Short woman 3", 32, 90, "F"],
+        ["Short woman 4", 56, 66, "F"],
+        ["Tall light man 1", 180, 23, "M"],
+        ["Tall light man 2", 170, 20, "M"],
+        ["Tall light man 3", 175, 30, "M"],
+        ["Tall light man 4", 169, 10, "M"],
 
-        # ["1", 10, 148, "F"],
-        # ["1", 15, 126, "F"],
-        # ["1", 16, 131, "F"],
-        # ["1", 20, 143, "F"],
-        # ["1", 30, 28, "F"],
-        # ["1", 40, 70, "F"],
-        # ["1", 50, 179, "F"],
-        # ["1", 60, 62, "F"],
-        # ["1", 70, 50, "F"],
-        # ["1", 80, 65, "F"],
-        # ["1", 90, 32, "F"],
-        # ["2", 19, 156, "M"],
-        # ["2", 120, 58, "M"],
-        # ["2", 93, 22, "M"],
-        # ["2", 191, 120, "M"],
-        # ["2", 146, 135, "M"],
+        ["1", 10, 148, "F"],
+        ["1", 15, 126, "F"],
+        ["1", 16, 131, "F"],
+        ["1", 20, 143, "F"],
+        ["1", 30, 28, "F"],
+        ["1", 40, 70, "F"],
+        ["1", 50, 179, "F"],
+        ["1", 60, 62, "F"],
+        ["1", 70, 50, "F"],
+        ["1", 80, 65, "F"],
+        ["1", 90, 32, "F"],
+        ["2", 19, 156, "M"],
+        ["2", 120, 58, "M"],
+        ["2", 93, 22, "M"],
+        ["2", 191, 120, "M"],
+        ["2", 146, 135, "M"],
 
     ]
 
@@ -292,8 +390,10 @@ if __name__ == '__main__':
         data_points.append(new_point)
     renderer.start(points_queue, data_points)
 
+    time1 = time.time()
+
     # training
-    best_network = train(df)
+    best_network = train(list(df["Weight"]), list(df["Height"]), list(df["Gender"]))
 
     print()
 
@@ -315,3 +415,6 @@ if __name__ == '__main__':
         print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
 
     print()
+
+    time2 = time.time()
+    print(f"Time: {time2 - time1}")
