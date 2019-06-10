@@ -60,7 +60,7 @@ def feedf(inputs, weights, bias):
     for i in range(len(inputs)):
         total = total + inputs[i] * weights[i]
     total = total + bias
-    output = sigmoid_tanh(total)
+    output = sigmoid_tanh_plain(total)
     return output
 
 
@@ -174,28 +174,19 @@ def center_column(data_frame, column_name):
 # @njit(float32(float32[:], float32[:], float32[:], float32, float32, float32))
 @cuda.jit(device=True)
 def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
-    # print(len(hWeights))
-    # print(len(hBiases))
-    # print(len(oWeights))
-    # outputs = numba.cuda.local.array(128, float32)
-    # # m = len(hBiases)
-    # for i in range(8):
-    #     outputs[i] = 0
-        # output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
-        # outputs[i] = output
-    # o1_out = 0
-    # for i in range(len(outputs)):
-    #     o1_out = o1_out + outputs[i] * oWeights[i]
-    # o1_out = o1_out + oBias
-    # o1_out = sigmoid_tanh(o1_out)
-    # return o1_out
-    return 1.0
+    outputs = numba.cuda.local.array(128, float32)
+    for i in range(len(hBiases)):
+        output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
+        outputs[i] = output
+    o1_out = 0
+    for i in range(len(outputs)):
+        o1_out = o1_out + outputs[i] * oWeights[i]
+    o1_out = o1_out + oBias
+    o1_out = sigmoid_tanh(o1_out)
+    return o1_out
 
 
 def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
-    # print(len(hWeights))
-    # print(len(hBiases))
-    # print(len(oWeights))
     outputs = []
     for i in range(len(hBiases)):
         output = sigmoid_tanh_plain(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
@@ -210,17 +201,15 @@ def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
 
 # @njit(parallel=PARALLEL_RENDER_GRAPH)
 @cuda.jit
-# def render_graph(hWeights, hBiases, oWeights, oBias, points):
-def render_graph(points):
-    # # rendering graph
-    # scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-    # scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+def render_graph(hWeights, hBiases, oWeights, oBias, points):
+    # rendering graph
+    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
     pos = cuda.grid(1)
-    # y = pos // graphics.ARR_SIZE_Y
-    # x = pos % graphics.ARR_SIZE_Y
-    # result = NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
-    # points[pos] = result
-    points[pos] = 1.0
+    y = pos // graphics.ARR_SIZE_Y * graphics.STEP_Y
+    x = pos % graphics.ARR_SIZE_Y * graphics.STEP_X
+    result = NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
+    points[pos] = result
 
 
 # @njit(parallel=PARALLEL_CALC_ERR)
@@ -337,10 +326,8 @@ def train(weights, heights, genders):
 
         if(iteration % RENDER_EVERY == 0):
             best_network = generation[0]
-            points = [0] * (graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
-            # render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.get_weights(), best_network.get_biases(), best_network.get_output_weights(), best_network.get_output_bias(), points)
-            # render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](points)
-            render_graph[128, 128](points)
+            points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
+            render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](np.array(best_network.get_weights()), np.array(best_network.get_biases()), np.array(best_network.get_output_weights()), best_network.get_output_bias(), points)
             points_queue.put(points)
 
         print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
