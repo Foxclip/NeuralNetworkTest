@@ -5,8 +5,7 @@ import math
 import graphics
 import multiprocessing
 from numba import float32
-from numba import njit
-import numba
+from numba import njit, cuda, guvectorize
 import time
 
 POPULATION_SIZE = 10
@@ -21,6 +20,12 @@ CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
 RENDER_INTERPOLATION_STEP = 5
+RENDER_EVERY = 10
+
+PARALLEL_CALC_ERR = False
+PARALLEL_RENDER_GRAPH = False
+PARALLEL_NNFEEDF = False
+PARALLEL_SIGMOID = False
 
 last_id = 0
 
@@ -38,7 +43,8 @@ def relu(x):
     return max(0, x)
 
 
-@njit
+@njit(parallel=PARALLEL_SIGMOID)
+# @cuda.jit
 def sigmoid_tanh(x):
     return (math.tanh(x) + 1) / 2
 
@@ -159,8 +165,9 @@ def center_column(data_frame, column_name):
     return mean
 
 
-@njit
+@njit(parallel=PARALLEL_NNFEEDF)
 # @njit(float32(float32[:], float32[:], float32[:], float32, float32, float32))
+# @cuda.jit
 def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
     # print(len(hWeights))
     # print(len(hBiases))
@@ -177,7 +184,8 @@ def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
     return o1_out
 
 
-@njit
+@njit(parallel=PARALLEL_RENDER_GRAPH)
+# @cuda.jit
 def render_graph(hWeights, hBiases, oWeights, oBias):
     # rendering graph
     points = []
@@ -190,7 +198,8 @@ def render_graph(hWeights, hBiases, oWeights, oBias):
     return points
 
 
-@njit
+@njit(parallel=PARALLEL_CALC_ERR)
+# @cuda.jit
 def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases):
     network_mean_errors = []
     for i in range(POPULATION_SIZE):
@@ -301,9 +310,10 @@ def train(weights, heights, genders):
         # swapping generations
         generation = new_generation
 
-        best_network = generation[0]
-        points = render_graph(best_network.get_weights(), best_network.get_biases(), best_network.get_output_weights(), best_network.get_output_bias())
-        points_queue.put(points)
+        if(iteration % RENDER_EVERY == 0):
+            best_network = generation[0]
+            points = render_graph(best_network.get_weights(), best_network.get_biases(), best_network.get_output_weights(), best_network.get_output_bias())
+            points_queue.put(points)
 
         print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
         # print("Generation " + str(iteration + 1) + " " + str(minimal_error))
