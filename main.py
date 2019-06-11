@@ -6,7 +6,7 @@ import graphics
 import multiprocessing
 import numba
 from numba import float32
-from numba import njit, cuda, guvectorize
+from numba import cuda
 import time
 
 POPULATION_SIZE = 10
@@ -324,7 +324,7 @@ def train(weights, heights, genders):
         # swapping generations
         generation = new_generation
 
-        if(iteration % RENDER_EVERY == 0):
+        if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0):
             best_network = generation[0]
             points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
             render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](np.array(best_network.get_weights()), np.array(best_network.get_biases()), np.array(best_network.get_output_weights()), best_network.get_output_bias(), points)
