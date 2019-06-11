@@ -13,7 +13,7 @@ POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1000
-ITERATIONS = 100
+ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
 
 HIDDEN_LAYER_NEURONS = 100
@@ -102,12 +102,13 @@ class NeuralNetwork:
         self.parent1 = -1
         self.parent2 = -1
         for i in range(HIDDEN_LAYER_NEURONS):
-            new_neuron = Neuron("h" + str(i), [np.random.normal(), np.random.normal()], np.random.normal())
+            # new_neuron = Neuron("h" + str(i), [np.random.normal(), np.random.normal()], np.random.normal())
+            new_neuron = Neuron("h" + str(i), [0, 0], 0)
             self.hidden_neurons.append(new_neuron)
         o1_initial_weights = []
         for i in range(len(self.hidden_neurons)):
-            o1_initial_weights.append(np.random.normal())
-        self.o1 = Neuron("o1", o1_initial_weights, np.random.normal())
+            o1_initial_weights.append(0)
+        self.o1 = Neuron("o1", o1_initial_weights, 0)
 
     def feedforward(self, x):
         # for i in range(len(x)):
@@ -148,12 +149,14 @@ def lists_average(list1, list2):
     avg_list = []
     assert len(list1) == len(list2), "Lists have different length"
     for i in range(len(list1)):
-        avg_list.append(np.mean([list1[i], list2[i]]))
+        # avg_list.append(np.mean([list1[i], list2[i]]))
+        avg_list.append((list1[i] + list2[i]) / 2.0)
     return avg_list
 
 
 def neuron_crossover(neuron1, neuron2):
-    return Neuron(neuron1.name, lists_average(neuron1.weights, neuron2.weights), np.mean([neuron1.bias, neuron2.bias]))
+    # return Neuron(neuron1.name, lists_average(neuron1.weights, neuron2.weights), np.mean([neuron1.bias, neuron2.bias]))
+    return Neuron(neuron1.name, lists_average(neuron1.weights, neuron2.weights), (neuron1.bias + neuron2.bias) / 2)
 
 
 def crossover(network1, network2):
@@ -393,29 +396,29 @@ if __name__ == '__main__':
 
         ["Alice", 123, 65, "F"],
         ["Bob", 160, 72, "M"],
-        ["Charlie", 152, 70, "M"],
-        ["Diana", 120, 60, "F"],
-        ["Eugene", 164, 69, "M"],
-        ["Fiona", 129, 65, "F"],
-        ["Garreth", 177, 75, "M"],
-        ["Heather", 135, 55, "F"],
+        # ["Charlie", 152, 70, "M"],
+        # ["Diana", 120, 60, "F"],
+        # ["Eugene", 164, 69, "M"],
+        # ["Fiona", 129, 65, "F"],
+        # ["Garreth", 177, 75, "M"],
+        # ["Heather", 135, 55, "F"],
 
-        ["Short man 1", 75, 30, "M"],
-        ["Short man 2", 70, 25, "M"],
-        ["Short man 3", 80, 28, "M"],
-        ["Short man 4", 90, 50, "M"],
-        ["Short heavy man 1", 75, 150, "M"],
-        ["Short heavy man 2", 70, 125, "M"],
-        ["Short heavy man 3", 80, 134, "M"],
-        ["Short heavy man 4", 90, 128, "M"],
-        ["Short woman 1", 49, 78, "F"],
-        ["Short woman 2", 58, 74, "F"],
-        ["Short woman 3", 32, 90, "F"],
-        ["Short woman 4", 56, 66, "F"],
-        ["Tall light man 1", 180, 23, "M"],
-        ["Tall light man 2", 170, 20, "M"],
-        ["Tall light man 3", 175, 30, "M"],
-        ["Tall light man 4", 169, 10, "M"],
+        # ["Short man 1", 75, 30, "M"],
+        # ["Short man 2", 70, 25, "M"],
+        # ["Short man 3", 80, 28, "M"],
+        # ["Short man 4", 90, 50, "M"],
+        # ["Short heavy man 1", 75, 150, "M"],
+        # ["Short heavy man 2", 70, 125, "M"],
+        # ["Short heavy man 3", 80, 134, "M"],
+        # ["Short heavy man 4", 90, 128, "M"],
+        # ["Short woman 1", 49, 78, "F"],
+        # ["Short woman 2", 58, 74, "F"],
+        # ["Short woman 3", 32, 90, "F"],
+        # ["Short woman 4", 56, 66, "F"],
+        # ["Tall light man 1", 180, 23, "M"],
+        # ["Tall light man 2", 170, 20, "M"],
+        # ["Tall light man 3", 175, 30, "M"],
+        # ["Tall light man 4", 169, 10, "M"],
 
         ["1", 10, 148, "F"],
         ["1", 15, 126, "F"],
