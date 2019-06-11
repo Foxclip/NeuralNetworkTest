@@ -13,13 +13,14 @@ POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
 MAX_MUTATION = 1000
-ITERATIONS = 1000
+ITERATIONS = 100
 MINIMAL_ERROR_SHUTDOWN = False
 
-HIDDEN_LAYER_NEURONS = 8
+HIDDEN_LAYER_NEURONS = 100
 CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
+PRINT_GEN_NUMBER = True
 RENDER_INTERPOLATION_STEP = 5
 RENDER_EVERY = 10
 
@@ -214,7 +215,7 @@ def render_graph(hWeights, hBiases, oWeights, oBias, points):
 
 # @njit(parallel=PARALLEL_CALC_ERR)
 # @cuda.jit
-def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases):
+def calculate_errors_plain(weights, heights, genders, hWeights, hBiases, oWeights, oBiases):
     network_mean_errors = []
     for i in range(POPULATION_SIZE):
         errors = []
@@ -243,6 +244,33 @@ def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBi
         # print(mean_error)
         network_mean_errors.append(mean_error)
     return network_mean_errors
+
+
+@cuda.jit
+def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases, errors_out):
+
+    pos = cuda.grid(1)
+    i = pos // len(weights)
+    j = pos % len(weights)
+
+    weights_start = i * HIDDEN_LAYER_NEURONS * 2
+    weights_end = weights_start + HIDDEN_LAYER_NEURONS * 2
+    current_hWeights = hWeights[weights_start:weights_end]
+
+    biases_start = i * HIDDEN_LAYER_NEURONS
+    biases_end = biases_start + HIDDEN_LAYER_NEURONS
+    current_hBiases = hBiases[biases_start:biases_end]
+
+    oweights_start = i * HIDDEN_LAYER_NEURONS
+    oweights_end = oweights_start + HIDDEN_LAYER_NEURONS
+    current_oWeights = oWeights[oweights_start:oweights_end]
+
+    oBias = oBiases[i]
+
+    result = NNfeedf(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])
+    error = abs(result - genders[j])
+
+    errors_out[pos] += error
 
 
 def train(weights, heights, genders):
@@ -277,13 +305,22 @@ def train(weights, heights, genders):
             hBiases = hBiases + current_network.get_biases()
             oWeights = oWeights + current_network.get_output_weights()
             oBiases.append(current_network.get_output_bias())
-        network_mean_errors = calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBiases)
-        # print(network_mean_errors)
+        network_errors_raw = np.zeros(POPULATION_SIZE * len(weights))
+        genders_num = [0 if gender == "M" else 1 for gender in genders]
+        calculate_errors[POPULATION_SIZE, len(weights)](np.array(weights), np.array(heights), np.array(genders_num), np.array(hWeights), np.array(hBiases), np.array(oWeights), np.array(oBiases), network_errors_raw)
+        network_errors_mean = [0] * POPULATION_SIZE
+        for i in range(POPULATION_SIZE):
+            s = 0
+            for j in range(len(weights)):
+                s += network_errors_raw[i * len(weights) + j]
+            network_errors_mean[i] = s
+        for i in range(POPULATION_SIZE):
+            network_errors_mean[i] /= len(weights)
 
         # calculating fitness
         for i in range(POPULATION_SIZE):
-            if network_mean_errors[i] != 0:
-                generation[i].fitness = 1.0 / network_mean_errors[i]
+            if network_errors_mean[i] != 0:
+                generation[i].fitness = 1.0 / network_errors_mean[i]
             else:
                 generation[i].fitness = float("inf")
 
@@ -330,7 +367,8 @@ def train(weights, heights, genders):
             render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](np.array(best_network.get_weights()), np.array(best_network.get_biases()), np.array(best_network.get_output_weights()), best_network.get_output_bias(), points)
             points_queue.put(points)
 
-        print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
+        if PRINT_GEN_NUMBER:
+            print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
         # print("Generation " + str(iteration + 1) + " " + str(minimal_error))
 
         # if minimal error goes below threshold, training stops
