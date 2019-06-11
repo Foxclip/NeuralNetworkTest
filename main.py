@@ -12,7 +12,7 @@ import time
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
-MAX_MUTATION = 1000
+MAX_MUTATION = 10
 ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
 
@@ -396,29 +396,29 @@ if __name__ == '__main__':
 
         ["Alice", 123, 65, "F"],
         ["Bob", 160, 72, "M"],
-        # ["Charlie", 152, 70, "M"],
-        # ["Diana", 120, 60, "F"],
-        # ["Eugene", 164, 69, "M"],
-        # ["Fiona", 129, 65, "F"],
-        # ["Garreth", 177, 75, "M"],
-        # ["Heather", 135, 55, "F"],
+        ["Charlie", 152, 70, "M"],
+        ["Diana", 120, 60, "F"],
+        ["Eugene", 164, 69, "M"],
+        ["Fiona", 129, 65, "F"],
+        ["Garreth", 177, 75, "M"],
+        ["Heather", 135, 55, "F"],
 
-        # ["Short man 1", 75, 30, "M"],
-        # ["Short man 2", 70, 25, "M"],
-        # ["Short man 3", 80, 28, "M"],
-        # ["Short man 4", 90, 50, "M"],
-        # ["Short heavy man 1", 75, 150, "M"],
-        # ["Short heavy man 2", 70, 125, "M"],
-        # ["Short heavy man 3", 80, 134, "M"],
-        # ["Short heavy man 4", 90, 128, "M"],
-        # ["Short woman 1", 49, 78, "F"],
-        # ["Short woman 2", 58, 74, "F"],
-        # ["Short woman 3", 32, 90, "F"],
-        # ["Short woman 4", 56, 66, "F"],
-        # ["Tall light man 1", 180, 23, "M"],
-        # ["Tall light man 2", 170, 20, "M"],
-        # ["Tall light man 3", 175, 30, "M"],
-        # ["Tall light man 4", 169, 10, "M"],
+        ["Short man 1", 75, 30, "M"],
+        ["Short man 2", 70, 25, "M"],
+        ["Short man 3", 80, 28, "M"],
+        ["Short man 4", 90, 50, "M"],
+        ["Short heavy man 1", 75, 150, "M"],
+        ["Short heavy man 2", 70, 125, "M"],
+        ["Short heavy man 3", 80, 134, "M"],
+        ["Short heavy man 4", 90, 128, "M"],
+        ["Short woman 1", 49, 78, "F"],
+        ["Short woman 2", 58, 74, "F"],
+        ["Short woman 3", 32, 90, "F"],
+        ["Short woman 4", 56, 66, "F"],
+        ["Tall light man 1", 180, 23, "M"],
+        ["Tall light man 2", 170, 20, "M"],
+        ["Tall light man 3", 175, 30, "M"],
+        ["Tall light man 4", 169, 10, "M"],
 
         ["1", 10, 148, "F"],
         ["1", 15, 126, "F"],
@@ -438,6 +438,11 @@ if __name__ == '__main__':
         ["2", 146, 135, "M"],
 
     ]
+
+    data = []
+    for i in range(1000):
+        gender = "M" if random.random() < 0.5 else "F"
+        data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
 
     df = pd.DataFrame(data, columns=["Name", "Weight", "Height", "Gender"])
     weight_mean = center_column(df, "Weight")
@@ -472,13 +477,13 @@ if __name__ == '__main__':
         print("    " + best_network.hidden_neurons[i].name + " " + str(best_network.o1.weights[i]))
 
     # testing on original data
-    print()
-    print("Original data")
-    for j in range(len(df.index)):
-        result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
-        result_gender = "M" if result < 0.5 else "F"
-        pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
-        print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
+    # print()
+    # print("Original data")
+    # for j in range(len(df.index)):
+    #     result = best_network.feedforward([df.loc[j]["Weight"], df.loc[j]["Height"]])
+    #     result_gender = "M" if result < 0.5 else "F"
+    #     pass_fail_string = "pass" if result_gender == df.loc[j]["Gender"] else "FAIL"
+    #     print(df.loc[j]["Name"] + ": " + f"{result:.3f}" + " (" + str(result) + ")" + " " + pass_fail_string)
 
     print()
 
