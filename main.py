@@ -18,7 +18,7 @@ ITERATIONS = 1000               # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 8
+HIDDEN_LAYER_NEURONS = 3        # number of neurons on the hidden layer
 CLIP_VALUES = False             # limit weights and biases to 0.0..1.0
 
 # output settings

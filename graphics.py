@@ -2,32 +2,33 @@ import glfw
 import sys
 import numpy as np
 import pyrr
-# import random
 import multiprocessing
 import ctypes
 import math
 from OpenGL.GL import *
 
-SCR_WIDTH = 512
-SCR_HEIGHT = 512
-ARR_SIZE_X = 512
-ARR_SIZE_Y = 512
-STEP_X = int(SCR_WIDTH / ARR_SIZE_X)
-STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)
-CIRCLE_VERTEX_COUNT = 16
-CIRCLE_RADIUS = 5.0
+SCR_WIDTH = 512                         # window width
+SCR_HEIGHT = 512                        # window height
+ARR_SIZE_X = 512                        # grid size x
+ARR_SIZE_Y = 512                        # grid size y
+STEP_X = int(SCR_WIDTH / ARR_SIZE_X)    # grid step x
+STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)   # grid step y
+CIRCLE_VERTEX_COUNT = 16                # number of vertices in data point circle
+CIRCLE_RADIUS = 5.0                     # radius of the data point circle
 
-DATA_MAX_X = 200.0
-DATA_MAX_Y = 200.0
+DATA_MAX_X = 200.0                      # maximum x value of data
+DATA_MAX_Y = 200.0                      # maximum y value of data
 
-FLOAT_SIZE = 4
+FLOAT_SIZE = 4                          # size of float in bytes
 
 
 def framebuffer_size_callback(window, width, height):
+    """Called if window is resized"""
     glViewport(0, 0, width, height)
 
 
 class Point:
+    """Represents data point"""
 
     def __init__(self, x, y, color):
         self.x = x
@@ -36,20 +37,19 @@ class Point:
 
 
 class Graphics:
+    """Class handling rendering in a separate window"""
 
     def __init__(self):
-        self.window = None
-        self.shaderProgram = None
-        self.VAO = None
-        self.VBO = None
-        self.EBO = None
-        self.circleVAO = None
-        self.circleVBO = None
-        self.points_queue = None
-        self.data_points = None
-        self.texture = None
-        self.rectangleShader = None
-        self.circleShader = None
+        self.window = None              # GLFW window
+        self.VAO = None                 # VAO of rectangle
+        self.VBO = None                 # VBO of rectangle
+        self.circleVAO = None           # VAO of data point circle
+        self.circleVBO = None           # VBO of data point circle
+        self.points_queue = None        # multiprocessing.Queue with grid data, can be put in glTexImage2D
+        self.data_points = None         # list of Point objects with data points
+        self.texture = None             # rectangle texture, grid data will be loaded into it
+        self.rectangleShader = None     # shader program of rectangle
+        self.circleShader = None        # shader program of data point circle
 
     def setInt(self, shader, name, value):
         glUniform1i(glGetUniformLocation(shader, name), value)
@@ -148,6 +148,7 @@ class Graphics:
 
     def initCircle(self):
 
+        # generating vertices
         vertices = []
         for i in range(CIRCLE_VERTEX_COUNT):
             angle = float(i) / CIRCLE_VERTEX_COUNT * 360
@@ -174,11 +175,14 @@ class Graphics:
 
     def setUniforms(self):
 
+        # matrix needed for proper scaling of objects in the viewport
         orthoMatrix = pyrr.matrix44.create_orthogonal_projection(0, SCR_WIDTH, 0, SCR_HEIGHT, -1, 1, dtype=np.float32)
 
+        # rectangle shader
         glUseProgram(self.rectangleShader)
         self.setMat4(self.rectangleShader, "projection", orthoMatrix)
 
+        # circle shader
         glUseProgram(self.circleShader)
         self.setMat4(self.circleShader, "projection", orthoMatrix)
 
@@ -211,6 +215,7 @@ class Graphics:
             glGenerateMipmap(GL_TEXTURE_2D)
 
         except Exception as e:
+            # "queue.Empty" exception is expected and is not printed, but any other exception should be printed
             if type(e).__name__ != "Empty":
                 print(e)
 
