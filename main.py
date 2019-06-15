@@ -12,11 +12,11 @@ import time
 POPULATION_SIZE = 10
 CROSSOVER_POWER = 2
 MUTATION_POWER = 100
-MAX_MUTATION = 10
+MAX_MUTATION = 1
 ITERATIONS = 1000
 MINIMAL_ERROR_SHUTDOWN = False
 
-HIDDEN_LAYER_NEURONS = 100
+HIDDEN_LAYER_NEURONS = 1000
 CLIP_VALUES = False
 
 PRINT_WEIGHTS = False
@@ -178,7 +178,7 @@ def center_column(data_frame, column_name):
 # @njit(float32(float32[:], float32[:], float32[:], float32, float32, float32))
 @cuda.jit(device=True)
 def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
-    outputs = numba.cuda.local.array(128, float32)
+    outputs = numba.cuda.local.array(HIDDEN_LAYER_NEURONS, float32)
     for i in range(len(hBiases)):
         output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
         outputs[i] = output
