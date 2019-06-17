@@ -1,25 +1,24 @@
 import numpy as np
 import pandas as pd
 import random
-import math
 import graphics
 import multiprocessing
-import numba
-from numba import float32
 from numba import cuda
 import time
+import network
+import math
 
 # genetic algorithm settings
 POPULATION_SIZE = 10            # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 100            # how likely small mutations are
-MAX_MUTATION = 1000             # limits mutation of weights to that amount at once
-ITERATIONS = 1000               # generation limit
+MAX_MUTATION = 0.1              # limits mutation of weights to that amount at once
+ITERATIONS = 10000              # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 3        # number of neurons on the hidden layer
-CLIP_VALUES = False             # limit weights and biases to 0.0..1.0
+HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
+HIDDEN_LAYERS = 1               # number of hidden layers
 
 # output settings
 PRINT_WEIGHTS = False           # print weights of all neurons every generation
@@ -27,221 +26,6 @@ PRINT_GEN_NUMBER = True         # print generation number every generation
 RENDER_EVERY = 10               # render every N generation, useful if there are a lot of neurons and render is too slow
 
 last_id = 0                     # global variable for last used id of network, used to assign ids
-
-
-def increase_last_id():
-    global last_id
-    last_id += 1
-
-
-def sigmoid_exp(x):
-    return 1 / (1 + np.exp(-x))
-
-
-def relu(x):
-    return max(0, x)
-
-
-@cuda.jit(device=True)
-def sigmoid_tanh(x):
-    """
-    same as sigmoid_exp, but calculated using tanh
-    sigmoid_exp gives overflow error if weights are too high, but this function does not
-    """
-    return (math.tanh(x) + 1) / 2
-
-
-def sigmoid_tanh_plain(x):
-    """non-CUDA version of sigmoid_tanh"""
-    return (math.tanh(x) + 1) / 2
-
-
-def feedf(inputs, weights, bias):
-    total = 0
-    for i in range(len(inputs)):
-        total = total + inputs[i] * weights[i]
-    total = total + bias
-    output = sigmoid_tanh_plain(total)
-    return output
-
-
-class Neuron:
-
-    def __init__(self, name, weights, bias):
-        self.name = name
-        self.weights = weights
-        self.bias = bias
-
-    def feedforward(self, inputs):
-        return feedf(inputs, self.weights, self.bias)
-
-    def mutate(self):
-        """ mutation operator, used by genetic algorithm"""
-
-        # mutating weights
-        for i in range(len(self.weights)):
-            weight_mutation_rate = random.random()**MUTATION_POWER * MAX_MUTATION
-            self.weights[i] += random.uniform(-weight_mutation_rate, weight_mutation_rate)
-
-        # mutating bias
-        bias_mutation_rate = random.random()**MUTATION_POWER * MAX_MUTATION
-        self.bias += random.uniform(-bias_mutation_rate, bias_mutation_rate)
-
-        # clipping values
-        if(CLIP_VALUES):
-            self.weights = np.clip(self.weights, -1.0, 1.0)
-            self.bias = np.clip(self.bias, -1.0, 1.0)
-
-
-class NeuralNetwork:
-
-    def __init__(self):
-
-        # initializing some values
-        self.hidden_neurons = []
-        self.id = last_id
-        increase_last_id()
-        self.parent1 = -1
-        self.parent2 = -1
-
-        # creating neurons on hidden layer
-        for i in range(HIDDEN_LAYER_NEURONS):
-            new_neuron = Neuron("h" + str(i), [0, 0], 0)
-            self.hidden_neurons.append(new_neuron)
-
-        # creating output neuron
-        o1_initial_weights = []
-        for i in range(len(self.hidden_neurons)):
-            o1_initial_weights.append(0)
-        self.o1 = Neuron("o1", o1_initial_weights, 0)
-
-    def feedforward(self, x):
-
-        # calculating outputs of hidden layer neurons
-        outputs = []
-        for i in range(len(self.hidden_neurons)):
-            output = self.hidden_neurons[i].feedforward(x)
-            outputs.append(output)
-
-        # calculating outputs of output neurons
-        o1_out = self.o1.feedforward(outputs)
-        return o1_out
-
-    def mutate(self):
-
-        # mutating hidden layer neurons
-        for i in range(len(self.hidden_neurons)):
-            self.hidden_neurons[i].mutate()
-
-        # mutating output neuron
-        self.o1.mutate()
-
-    def get_weights(self):
-        """
-        returns list with weights of all hidden layer neurons
-        useful for sending to CUDA device
-        """
-        weights = []
-        for neuron in self.hidden_neurons:
-            for weight in neuron.weights:
-                weights.append(weight)
-        return weights
-
-    def get_biases(self):
-        """returns list with weights of all hidden layer neurons"""
-        biases = []
-        for neuron in self.hidden_neurons:
-            biases.append(neuron.bias)
-        return biases
-
-    def get_output_weights(self):
-        """returns weights of output neuron"""
-        return self.o1.weights
-
-    def get_output_bias(self):
-        """returns bias of output neuron"""
-        return self.o1.bias
-
-
-def lists_average(list1, list2):
-    """takes two lists and makes new list, each value is an average of pair of values from these lists"""
-    avg_list = []
-    assert len(list1) == len(list2), "Lists have different length"
-    for i in range(len(list1)):
-        avg_list.append((list1[i] + list2[i]) / 2.0)
-    return avg_list
-
-
-def neuron_crossover(neuron1, neuron2):
-    """Crossover operator for two neurons, used by genetic algorithm"""
-    return Neuron(neuron1.name, lists_average(neuron1.weights, neuron2.weights), (neuron1.bias + neuron2.bias) / 2)
-
-
-def crossover(network1, network2):
-    """Crossover operator for two neural networks, used by genetic algorithm"""
-
-    new_network = NeuralNetwork()
-
-    # crossover of hidden layer neurons
-    for i in range(len(network1.hidden_neurons)):
-        new_network.hidden_neurons[i] = neuron_crossover(network1.hidden_neurons[i], network2.hidden_neurons[i])
-
-    # crossover of output neurons
-    new_network.o1 = neuron_crossover(network1.o1, network2.o1)
-
-    return new_network
-
-
-def center_column(data_frame, column_name):
-    """centers column of numbers stored in pandas DataFrame around mean value of these numbers"""
-    mean = np.mean(list(data_frame[column_name]))
-    for i in range(len(data_frame.index)):
-        data_frame.iloc[i, data_frame.columns.get_loc(column_name)] -= mean
-    return mean
-
-
-@cuda.jit(device=True)
-def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
-    """
-    Feedforward function
-    Runs on CUDA device
-    """
-
-    # CUDA array for temporarily storing outputs of hidden layer neurons
-    outputs = numba.cuda.local.array(HIDDEN_LAYER_NEURONS, float32)
-
-    # calculating outputs of hidden layer neurons
-    for i in range(len(hBiases)):
-        output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
-        outputs[i] = output
-
-    # calculating output of the output neuron
-    o1_out = 0
-    for i in range(len(outputs)):
-        o1_out = o1_out + outputs[i] * oWeights[i]
-    o1_out = o1_out + oBias
-    o1_out = sigmoid_tanh(o1_out)
-
-    return o1_out
-
-
-def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
-    """Non-CUDA version of NNfeedf"""
-
-    # calculating outputs of hidden layer neurons
-    outputs = []
-    for i in range(len(hBiases)):
-        output = sigmoid_tanh_plain(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
-        outputs.append(output)
-
-    # calculating output of the output neuron
-    o1_out = 0
-    for i in range(len(outputs)):
-        o1_out = o1_out + outputs[i] * oWeights[i]
-    o1_out = o1_out + oBias
-    o1_out = sigmoid_tanh_plain(o1_out)
-
-    return o1_out
 
 
 @cuda.jit
@@ -260,7 +44,7 @@ def render_graph(hWeights, hBiases, oWeights, oBias, points):
     x = pos % graphics.ARR_SIZE_Y * graphics.STEP_X
 
     # running neural network
-    result = NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
+    result = network.NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
 
     # putting result in the output array
     points[pos] = result
@@ -288,7 +72,7 @@ def calculate_errors_plain(weights, heights, genders, hWeights, hBiases, oWeight
 
         for j in range(len(weights)):
             # result = generation[i].feedforward([weights[j], heights[j]])
-            result = NNfeedf_plain(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])  # change to NNfeedf
+            result = network.NNfeedf_plain(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])  # change to NNfeedf
             gender = 0 if genders[j] == "M" else 1
             error = abs(result - gender)
             errors.append(error)
@@ -331,7 +115,7 @@ def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBi
     oBias = oBiases[i]
 
     # running neural network
-    result = NNfeedf(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])
+    result = network.NNfeedf(current_hWeights, current_hBiases, current_oWeights, oBias, weights[j], heights[j])
 
     # resulting error is difference between the output of the network and data point value
     error = abs(result - genders[j])
@@ -340,13 +124,21 @@ def calculate_errors(weights, heights, genders, hWeights, hBiases, oWeights, oBi
     errors_out[pos] += error
 
 
+def center_column(data_frame, column_name):
+    """centers column of numbers stored in pandas DataFrame around mean value of these numbers"""
+    mean = np.mean(list(data_frame[column_name]))
+    for i in range(len(data_frame.index)):
+        data_frame.iloc[i, data_frame.columns.get_loc(column_name)] -= mean
+    return mean
+
+
 def train(weights, heights, genders):
     """Trains neural network"""
 
     # creating networks
     generation = []
     for i in range(POPULATION_SIZE):
-        new_network = NeuralNetwork()
+        new_network = network.NeuralNetwork(HIDDEN_LAYERS, HIDDEN_LAYER_NEURONS)
         generation.append(new_network)
 
     # minimal error starts at 1.0 at first and gets smaller later
@@ -357,7 +149,7 @@ def train(weights, heights, genders):
         # if you want to see the weights of all neurons
         if(PRINT_WEIGHTS):
             for i in range(POPULATION_SIZE):
-                print("Network " + str(i) + ":    " + str(generation[i].parent1) + " " + str(generation[i].parent2))
+                print("Network " + str(i))
                 for j in range(len(generation[i].hidden_neurons)):
                     neuron = generation[i].hidden_neurons[j]
                     print("    " + neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
@@ -417,9 +209,7 @@ def train(weights, heights, genders):
 
             # preserving the best network
             if i == 0:
-                new_network = crossover(generation[0], generation[0])
-                new_network.parent1 = generation[0].id
-                new_network.parent2 = generation[0].id
+                new_network = network.crossover(generation[0], generation[0])
                 new_generation.append(new_network)
                 continue
 
@@ -432,10 +222,8 @@ def train(weights, heights, genders):
             pick2 = int(scaledRand2)
 
             # crossover and mutation
-            new_network = crossover(generation[pick1], generation[pick2])
-            new_network.parent1 = generation[pick1].id
-            new_network.parent2 = generation[pick2].id
-            new_network.mutate()
+            new_network = network.crossover(generation[pick1], generation[pick2])
+            new_network.mutate(MUTATION_POWER, MAX_MUTATION)
             new_generation.append(new_network)
 
         # swapping generations
@@ -526,9 +314,22 @@ if __name__ == '__main__':
 
     # randomly generating data
     data = []
-    for i in range(1000):
-        gender = "M" if random.random() < 0.5 else "F"
-        data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
+    # for i in range(1000):
+    #     gender = "M" if random.random() < 0.5 else "F"
+    #     data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
+
+    for i in range(500):
+        angle = random.random() * 360
+        radius = random.uniform(50, 100)
+        x = math.cos(angle * math.pi / 180) * radius + 100
+        y = math.sin(angle * math.pi / 180) * radius + 100
+        data.append([str(i), x, y, "F"])
+    for i in range(200):
+        angle = random.random() * 360
+        radius = random.uniform(10, 50)
+        x = math.cos(angle * math.pi / 180) * radius + 100
+        y = math.sin(angle * math.pi / 180) * radius + 100
+        data.append([str(i), x, y, "M"])
 
     # putting data in pandas DataFrame
     df = pd.DataFrame(data, columns=["Name", "Weight", "Height", "Gender"])
