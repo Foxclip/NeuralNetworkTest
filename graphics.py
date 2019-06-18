@@ -9,8 +9,8 @@ from OpenGL.GL import *
 
 SCR_WIDTH = 512                         # window width
 SCR_HEIGHT = 512                        # window height
-ARR_SIZE_X = 512                        # grid size x
-ARR_SIZE_Y = 512                        # grid size y
+ARR_SIZE_X = 128                        # grid size x
+ARR_SIZE_Y = 128                        # grid size y
 STEP_X = int(SCR_WIDTH / ARR_SIZE_X)    # grid step x
 STEP_Y = int(SCR_HEIGHT / ARR_SIZE_Y)   # grid step y
 CIRCLE_VERTEX_COUNT = 16                # number of vertices in data point circle

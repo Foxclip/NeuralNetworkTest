@@ -7,9 +7,10 @@ from numba import cuda
 import time
 import network
 import math
+import sys
 
 # genetic algorithm settings
-POPULATION_SIZE = 10            # amount of neural networks in each generation
+POPULATION_SIZE = 2             # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 100            # how likely small mutations are
 MAX_MUTATION = 0.1              # limits mutation of weights to that amount at once
@@ -17,7 +18,7 @@ ITERATIONS = 10000              # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
+HIDDEN_LAYER_NEURONS = 1        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
 
 # output settings
@@ -156,52 +157,69 @@ def train(weights, heights, genders):
 
         # calculating error
 
-        # getting values of the neural netwok
-        # this has to be done to run the network on CUDA device
-        hWeights = []
-        hBiases = []
-        oWeights = []
-        oBiases = []
-        for i in range(POPULATION_SIZE):
-            current_network = generation[i]
-            hWeights = hWeights + current_network.get_weights()
-            hBiases = hBiases + current_network.get_biases()
-            oWeights = oWeights + current_network.get_output_weights()
-            oBiases.append(current_network.get_output_bias())
+        # # getting values of the neural netwok
+        # # this has to be done to run the network on CUDA device
+        # hWeights = []
+        # hBiases = []
+        # oWeights = []
+        # oBiases = []
+        # for i in range(POPULATION_SIZE):
+        #     current_network = generation[i]
+        #     hWeights = hWeights + current_network.get_weights()
+        #     hBiases = hBiases + current_network.get_biases()
+        #     oWeights = oWeights + current_network.get_output_weights()
+        #     oBiases.append(current_network.get_output_bias())
 
-        # errors will be put in this array
-        network_errors_raw = np.zeros(POPULATION_SIZE * len(weights))
+        # # errors will be put in this array
+        # network_errors_raw = np.zeros(POPULATION_SIZE * len(weights))
 
-        # converting array of genders (which are represented by "M" and "F") to array of numbers
-        genders_num = [0 if gender == "M" else 1 for gender in genders]
+        # # converting array of genders (which are represented by "M" and "F") to array of numbers
+        # genders_num = [0 if gender == "M" else 1 for gender in genders]
 
-        # calculating errors of neural networks on
-        calculate_errors[POPULATION_SIZE, len(weights)](np.array(weights), np.array(heights), np.array(genders_num), np.array(hWeights), np.array(hBiases), np.array(oWeights), np.array(oBiases), network_errors_raw)
+        # # calculating errors of neural networks on
+        # calculate_errors[POPULATION_SIZE, len(weights)](np.array(weights), np.array(heights), np.array(genders_num), np.array(hWeights), np.array(hBiases), np.array(oWeights), np.array(oBiases), network_errors_raw)
 
-        # calculate_errors makes array of individual erros on every data point
-        # to calculate fitness of the neural network, we need to know its average error
+        # # calculate_errors makes array of individual erros on every data point
+        # # to calculate fitness of the neural network, we need to know its average error
+        # network_errors_mean = [0] * POPULATION_SIZE
+        # for i in range(POPULATION_SIZE):
+        #     s = 0
+        #     for j in range(len(weights)):
+        #         s += network_errors_raw[i * len(weights) + j]
+        #     network_errors_mean[i] = s
+        # for i in range(POPULATION_SIZE):
+        #     network_errors_mean[i] /= len(weights)
+
+        # for neuron in generation[0].hiddenNeurons:
+        #     print(f"{neuron.name} {neuron.weights}")
+
+        # print(generation[1])
+        # for neuron in generation[1].hiddenNeurons:
+        #     print(f"{neuron.name} {neuron.weights}")
+
         network_errors_mean = [0] * POPULATION_SIZE
-        for i in range(POPULATION_SIZE):
-            s = 0
+        for i in range(len(generation)):
+            currentNetwork = generation[i]
+            # print(currentNetwork)
+            # for neuron in currentNetwork.hiddenNeurons:
+            #     print(f"{neuron.name} {neuron.weights}")
             for j in range(len(weights)):
-                s += network_errors_raw[i * len(weights) + j]
-            network_errors_mean[i] = s
-        for i in range(POPULATION_SIZE):
+                result = currentNetwork.feedforward([weights[i], heights[i]])[0]
+                error = abs(result - (0 if genders[i] == "M" else 1))
+                network_errors_mean[i] += error
             network_errors_mean[i] /= len(weights)
+        # print()
 
         # calculating fitness
         for i in range(POPULATION_SIZE):
-            if network_errors_mean[i] != 0:
-                generation[i].fitness = 1.0 / network_errors_mean[i]
-            else:
-                generation[i].fitness = float("inf")
+            generation[i].fitness = 1.0 / (network_errors_mean[i] + 1.0)
 
         # list has to be sorted
         generation.sort(key=lambda x: x.fitness, reverse=True)
 
         # updating minimal error
-        if(1.0 / generation[0].fitness < minimal_error):
-            minimal_error = 1.0 / generation[0].fitness
+        if(1.0 / generation[0].fitness - 1 < minimal_error):
+            minimal_error = 1.0 / generation[0].fitness - 1
 
         # creating new generation
         new_generation = []
@@ -226,19 +244,38 @@ def train(weights, heights, genders):
             new_network.mutate(MUTATION_POWER, MAX_MUTATION)
             new_generation.append(new_network)
 
+            # print(new_network)
+            # for neuron in new_network.hiddenNeurons:
+            #     print(f"{neuron.name} {neuron.weights}")
+
+            # for neuron in new_generation[0].hiddenNeurons:
+            #     print(f"{neuron.name} {neuron.weights}")
+            # for neuron in new_generation[1].hiddenNeurons:
+            #     print(f"{neuron.name} {neuron.weights}")
+
+        # for neuron in new_generation[0].hiddenNeurons:
+        #     print(f"{neuron.name} {neuron.weights}")
+
         # swapping generations
         generation = new_generation
 
         # rendering results in a separate window
         if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0):
 
-            # we want to use not just any networ, but the best one
+            # we want to use not just any network, but the best one
             best_network = generation[0]
 
-            points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
+            points = []
 
-            # calculating grid of values
-            render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](np.array(best_network.get_weights()), np.array(best_network.get_biases()), np.array(best_network.get_output_weights()), best_network.get_output_bias(), points)
+            # points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
+
+            # # calculating grid of values
+            # render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](np.array(best_network.get_weights()), np.array(best_network.get_biases()), np.array(best_network.get_output_weights()), best_network.get_output_bias(), points)
+
+            for i in range(graphics.ARR_SIZE_X):
+                for j in range(graphics.ARR_SIZE_Y):
+                    result = best_network.feedforward([i * graphics.STEP_X, j * graphics.STEP_Y])[0]
+                    points.append(result)
 
             # sending resulting list to the renderer
             points_queue.put(points)
@@ -255,6 +292,10 @@ def train(weights, heights, genders):
         if minimal_error == 0.0:
             break
 
+        # print()
+        # if(iteration >= 1):
+        #     sys.exit()
+
     print()
 
     # returning best network
@@ -269,67 +310,67 @@ if __name__ == '__main__':
 
         ["Alice", 123, 65, "F"],
         ["Bob", 160, 72, "M"],
-        ["Charlie", 152, 70, "M"],
-        ["Diana", 120, 60, "F"],
-        ["Eugene", 164, 69, "M"],
-        ["Fiona", 129, 65, "F"],
-        ["Garreth", 177, 75, "M"],
-        ["Heather", 135, 55, "F"],
+        # ["Charlie", 152, 70, "M"],
+        # ["Diana", 120, 60, "F"],
+        # ["Eugene", 164, 69, "M"],
+        # ["Fiona", 129, 65, "F"],
+        # ["Garreth", 177, 75, "M"],
+        # ["Heather", 135, 55, "F"],
 
-        ["Short man 1", 75, 30, "M"],
-        ["Short man 2", 70, 25, "M"],
-        ["Short man 3", 80, 28, "M"],
-        ["Short man 4", 90, 50, "M"],
-        ["Short heavy man 1", 75, 150, "M"],
-        ["Short heavy man 2", 70, 125, "M"],
-        ["Short heavy man 3", 80, 134, "M"],
-        ["Short heavy man 4", 90, 128, "M"],
-        ["Short woman 1", 49, 78, "F"],
-        ["Short woman 2", 58, 74, "F"],
-        ["Short woman 3", 32, 90, "F"],
-        ["Short woman 4", 56, 66, "F"],
-        ["Tall light man 1", 180, 23, "M"],
-        ["Tall light man 2", 170, 20, "M"],
-        ["Tall light man 3", 175, 30, "M"],
-        ["Tall light man 4", 169, 10, "M"],
+        # ["Short man 1", 75, 30, "M"],
+        # ["Short man 2", 70, 25, "M"],
+        # ["Short man 3", 80, 28, "M"],
+        # ["Short man 4", 90, 50, "M"],
+        # ["Short heavy man 1", 75, 150, "M"],
+        # ["Short heavy man 2", 70, 125, "M"],
+        # ["Short heavy man 3", 80, 134, "M"],
+        # ["Short heavy man 4", 90, 128, "M"],
+        # ["Short woman 1", 49, 78, "F"],
+        # ["Short woman 2", 58, 74, "F"],
+        # ["Short woman 3", 32, 90, "F"],
+        # ["Short woman 4", 56, 66, "F"],
+        # ["Tall light man 1", 180, 23, "M"],
+        # ["Tall light man 2", 170, 20, "M"],
+        # ["Tall light man 3", 175, 30, "M"],
+        # ["Tall light man 4", 169, 10, "M"],
 
-        ["1", 10, 148, "F"],
-        ["1", 15, 126, "F"],
-        ["1", 16, 131, "F"],
-        ["1", 20, 143, "F"],
-        ["1", 30, 28, "F"],
-        ["1", 40, 70, "F"],
-        ["1", 50, 179, "F"],
-        ["1", 60, 62, "F"],
-        ["1", 70, 50, "F"],
-        ["1", 80, 65, "F"],
-        ["1", 90, 32, "F"],
-        ["2", 19, 156, "M"],
-        ["2", 120, 58, "M"],
-        ["2", 93, 22, "M"],
-        ["2", 191, 120, "M"],
-        ["2", 146, 135, "M"],
+        # ["1", 10, 148, "F"],
+        # ["1", 15, 126, "F"],
+        # ["1", 16, 131, "F"],
+        # ["1", 20, 143, "F"],
+        # ["1", 30, 28, "F"],
+        # ["1", 40, 70, "F"],
+        # ["1", 50, 179, "F"],
+        # ["1", 60, 62, "F"],
+        # ["1", 70, 50, "F"],
+        # ["1", 80, 65, "F"],
+        # ["1", 90, 32, "F"],
+        # ["2", 19, 156, "M"],
+        # ["2", 120, 58, "M"],
+        # ["2", 93, 22, "M"],
+        # ["2", 191, 120, "M"],
+        # ["2", 146, 135, "M"],
 
     ]
 
-    # randomly generating data
-    data = []
-    # for i in range(1000):
-    #     gender = "M" if random.random() < 0.5 else "F"
-    #     data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
+    # # randomly generating data
+    # data = []
+    # # for i in range(1000):
+    # #     gender = "M" if random.random() < 0.5 else "F"
+    # #     data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
 
-    for i in range(500):
-        angle = random.random() * 360
-        radius = random.uniform(50, 100)
-        x = math.cos(angle * math.pi / 180) * radius + 100
-        y = math.sin(angle * math.pi / 180) * radius + 100
-        data.append([str(i), x, y, "F"])
-    for i in range(200):
-        angle = random.random() * 360
-        radius = random.uniform(10, 50)
-        x = math.cos(angle * math.pi / 180) * radius + 100
-        y = math.sin(angle * math.pi / 180) * radius + 100
-        data.append([str(i), x, y, "M"])
+    # for i in range(500):
+    #     angle = random.random() * 360
+    #     radius = random.uniform(50, 100)
+    #     x = math.cos(angle * math.pi / 180) * radius + 100
+    #     y = math.sin(angle * math.pi / 180) * radius + 100
+    #     data.append([str(i), x, y, "F"])
+    # for i in range(200):
+    #     angle = random.random() * 360
+    #     radius = random.uniform(10, 50)
+    #     x = math.cos(angle * math.pi / 180) * radius + 100
+    #     y = math.sin(angle * math.pi / 180) * radius + 100
+    #     data.append([str(i), x, y, "M"])
 
     # putting data in pandas DataFrame
     df = pd.DataFrame(data, columns=["Name", "Weight", "Height", "Gender"])
@@ -363,11 +404,8 @@ if __name__ == '__main__':
 
     # printing weights of the best network
     print("Weights")
-    for neuron in best_network.hidden_neurons:
+    for neuron in best_network.hiddenNeurons:
         print(neuron.name + " " + str(neuron.weights) + " " + str(neuron.bias))
-    print(best_network.o1.name)
-    for i in range(len(best_network.hidden_neurons)):
-        print("    " + best_network.hidden_neurons[i].name + " " + str(best_network.o1.weights[i]))
 
     print()
 
