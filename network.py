@@ -111,6 +111,7 @@ class Neuron(_Neuron):
         # mutating weights
         for i in range(len(self.weights)):
             weight_mutation_rate = random.random()**power * maxMutation
+            print(weight_mutation_rate)
             self.weights[i] += random.uniform(-weight_mutation_rate, weight_mutation_rate)
 
         # mutating bias
@@ -152,21 +153,27 @@ class NeuralNetwork:
         self.addInputNeuron(input1)
         self.addInputNeuron(input2)
 
-        for i in range(hiddenLayers):
-            # creating neurons on hidden layer
-            for j in range(neuronsInLayer):
-                new_neuron = Neuron("h" + str(i) + ":" + str(j))
+        # creating hidden layer neurons
+        previousLayer = []
+        currentLayer = []
+        for layer_i in range(hiddenLayers):
+            currentLayer = []
+            # creating new layer of neurons
+            for neuron_i in range(neuronsInLayer):
+                new_neuron = Neuron("h" + str(layer_i) + ":" + str(neuron_i))
                 self.addHiddenNeuron(new_neuron)
+                currentLayer.append(new_neuron)
             # connecting input neurons to hidden neurons
-            if i == 0:
+            if layer_i == 0:
                 for inputNeuron in self.inputNeurons:
                     for hiddenNeuron in self.hiddenNeurons:
                         self.connect(inputNeuron, hiddenNeuron)
-        #                 print("Connecting neurons...")
-        #                 for n in self.hiddenNeurons:
-        #                     print(f"{n.name} {n.weights} {n.inputLinks}")
-
-        # print()
+            # connecting neurons in current layer to neurons in previous layer
+            if layer_i > 0:
+                for previousLayerNeuron in previousLayer:
+                    for currentLayerNeuron in currentLayer:
+                        self.connect(previousLayerNeuron, currentLayerNeuron)
+            previousLayer = currentLayer
 
         # sorting neurons
         self.sortNeurons()
@@ -243,7 +250,10 @@ class NeuralNetwork:
         # print(f"Input: {inputs[i]} Neuron name: {self.inputNeurons[i].name} Neuron value: {self.inputNeurons[i].value}")
 
     def __repr__(self):
-        return f"id: {self.id} fitness: {self.fitness:f} | {self.neurons}"
+        s = f"id: {self.id}\n"
+        for neuron in self.neurons:
+            s += f"    {neuron.__repr__()}\n"
+        return s
 
 
 def lists_average(list1, list2):
@@ -330,50 +340,37 @@ if __name__ == "__main__":
     import graphics
     import multiprocessing
 
-    network = NeuralNetwork(1, 2)
-    # for neuron in network.hiddenNeurons:
-    #     for i in range(len(neuron.weights)):
-    #         neuron.weights[i] = -1
-    # network.hiddenNeurons[2].weights = [1, 1]
-    network.hiddenNeurons[0].weights[0] = -1.056683919646388
-    network.hiddenNeurons[0].weights[1] = 3.020929543733549
-    network.hiddenNeurons[0].bias = -0.3300333544395284
-    network.hiddenNeurons[1].weights[0] = -0.34942471544975495
-    network.hiddenNeurons[1].weights[1] = -0.9195346857192161
-    network.hiddenNeurons[1].bias = -0.6667485333288657
-    network.hiddenNeurons[2].weights[0] = 2.643323489075672
-    network.hiddenNeurons[2].weights[1] = 6.692226208826651
-    network.hiddenNeurons[2].bias = 0.9135760573530339
-    weight_mean = 141.5
-    height_mean = 68.5
-    # network.mutate(100, 1000)
+    network = NeuralNetwork(5, 5)
 
-    data_points = []
-    data_points.append(graphics.Point(123, 65, (255, 0, 0)))
-    data_points.append(graphics.Point(160, 72, (0, 0, 255)))
+    network.layers[1][0].weights[0] = 1
+    network.layers[2][0].weights[0] = 1
+    network.layers[3][0].weights[0] = 1
+    network.layers[4][0].weights[0] = 1
+    network.layers[5][0].weights[0] = 1
+    # network.layers[1][0].weights[1] = -1
+    # network.layers[2][0].weights[0] = 1
+    network.layers[-1][0].weights[0] = 1
 
-    renderer = graphics.Graphics()
-    points_queue = multiprocessing.Queue()
-    renderer.start(points_queue, data_points)
+    result = network.feedforward([2, 3])
+    print(network)
 
-    points = []
-    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
-    # arrayScaleFactorX = graphics.DATA_MAX_X / graphics.ARR_SIZE_X
-    # arrayScaleFactorY = graphics.DATA_MAX_X / graphics.ARR_SIZE_X
-    for y in range(graphics.ARR_SIZE_Y):
-        for x in range(graphics.ARR_SIZE_X):
-            # result = network.feedforward([i * graphics.STEP_X, j * graphics.STEP_Y])[0]
-            print(x * graphics.STEP_X)
-            print(y * graphics.STEP_Y)
-            result = network.feedforward([int(x * graphics.STEP_X / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y * graphics.STEP_Y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])[0]
-            print(network)
-            points.append(result)
+    # weight_mean = 141.5
+    # height_mean = 68.5
 
-    # sending resulting list to the renderer
-    points_queue.put(points)
+    # data_points = []
+    # data_points.append(graphics.Point(123, 65, (255, 0, 0)))
+    # data_points.append(graphics.Point(160, 72, (0, 0, 255)))
 
-    # result1 = network.feedforward([123 - , 65])
-    # print(network)
-    # result2 = network.feedforward([160, 72])
-    # print(network)
+    # renderer = graphics.Graphics()
+    # points_queue = multiprocessing.Queue()
+    # renderer.start(points_queue, data_points)
+
+    # points = []
+    # scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+    # scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+    # for y in range(graphics.ARR_SIZE_Y):
+    #     for x in range(graphics.ARR_SIZE_X):
+    #         result = network.feedforward([int(x * graphics.STEP_X / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y * graphics.STEP_Y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])[0]
+    #         points.append(result)
+
+    # points_queue.put(points)

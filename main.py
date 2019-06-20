@@ -13,18 +13,18 @@ import pickle
 # genetic algorithm settings
 POPULATION_SIZE = 2             # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
-MUTATION_POWER = 1              # how likely small mutations are
-MAX_MUTATION = 1                # limits mutation of weights to that amount at once
-ITERATIONS = 100                # generation limit
+MUTATION_POWER = 10             # how likely small mutations are
+MAX_MUTATION = 1000             # limits mutation of weights to that amount at once
+ITERATIONS = 1000               # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 2        # number of neurons in the hidden layer
-HIDDEN_LAYERS = 1               # number of hidden layers
+HIDDEN_LAYER_NEURONS = 16       # number of neurons in the hidden layer
+HIDDEN_LAYERS = 2               # number of hidden layers
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
-RENDER_EVERY = 10               # render every N generation, useful if there are a lot of neurons and render is too slow
+RENDER_EVERY = 1000             # render every N generation, useful if there are a lot of neurons and render is too slow
 
 last_id = 0                     # global variable for last used id of network, used to assign ids
 
@@ -158,7 +158,6 @@ def train(weights, heights, genders):
                 network_errors_mean[i] += error
             network_errors_mean[i] /= len(weights)
 
-
         # calculating fitness
         for i in range(POPULATION_SIZE):
             generation[i].fitness = 1.0 / (network_errors_mean[i] + 1.0)
@@ -274,18 +273,18 @@ if __name__ == '__main__':
         ["Short man 2", 70, 25, "M"],
         ["Short man 3", 80, 28, "M"],
         ["Short man 4", 90, 50, "M"],
-        # ["Short heavy man 1", 75, 150, "M"],
-        # ["Short heavy man 2", 70, 125, "M"],
-        # ["Short heavy man 3", 80, 134, "M"],
-        # ["Short heavy man 4", 90, 128, "M"],
-        # ["Short woman 1", 49, 78, "F"],
-        # ["Short woman 2", 58, 74, "F"],
-        # ["Short woman 3", 32, 90, "F"],
-        # ["Short woman 4", 56, 66, "F"],
-        # ["Tall light man 1", 180, 23, "M"],
-        # ["Tall light man 2", 170, 20, "M"],
-        # ["Tall light man 3", 175, 30, "M"],
-        # ["Tall light man 4", 169, 10, "M"],
+        ["Short heavy man 1", 75, 150, "M"],
+        ["Short heavy man 2", 70, 125, "M"],
+        ["Short heavy man 3", 80, 134, "M"],
+        ["Short heavy man 4", 90, 128, "M"],
+        ["Short woman 1", 49, 78, "F"],
+        ["Short woman 2", 58, 74, "F"],
+        ["Short woman 3", 32, 90, "F"],
+        ["Short woman 4", 56, 66, "F"],
+        ["Tall light man 1", 180, 23, "M"],
+        ["Tall light man 2", 170, 20, "M"],
+        ["Tall light man 3", 175, 30, "M"],
+        ["Tall light man 4", 169, 10, "M"],
 
         # ["1", 10, 148, "F"],
         # ["1", 15, 126, "F"],
