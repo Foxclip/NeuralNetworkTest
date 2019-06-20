@@ -6,6 +6,7 @@ from numba import float32
 from numba import cuda
 import topogroup
 import sys
+import copy
 
 neuron_id = 0
 
@@ -43,6 +44,7 @@ class _Neuron:
         self.name = name
         self.inputLinks = []
         self.outputLinks = []
+        self.function = math.tanh
         self.groupId = 0
         self.inputCount = 0
         global neuron_id
@@ -71,6 +73,9 @@ class InputNeuron(_Neuron):
     def feedforward(self):
         pass
 
+    def __repr__(self):
+        return f"{self.name}->{self.value}"
+
 
 class Neuron(_Neuron):
 
@@ -90,7 +95,7 @@ class Neuron(_Neuron):
         for i in range(len(inputs)):
             total = total + inputs[i] * self.weights[i]
         total = total + self.bias
-        output = sigmoid_tanh_plain(total)
+        output = self.function(total)
         self.value = output
         # print("    NEURON_FEED")
         # print(f"    {self.id} {self.weights}")
@@ -118,10 +123,13 @@ class Neuron(_Neuron):
 
         # print(f"{self.name}: {self.weights}")
 
+    def __repr__(self):
+        return f"{self.name}-{self.weights}({self.bias})->{self.value}"
+
 
 class NeuralNetwork:
 
-    def __init__(self, hiddenLayers, neuronsInLayer, init=True):
+    def __init__(self, hiddenLayers, neuronsInLayer):
 
         self.hiddenLayers = hiddenLayers
         self.neuronsInLayer = neuronsInLayer
@@ -137,37 +145,36 @@ class NeuralNetwork:
         self.addInputNeuron(input1)
         self.addInputNeuron(input2)
 
-        if init:
+        for i in range(hiddenLayers):
+            # creating neurons on hidden layer
+            for j in range(neuronsInLayer):
+                new_neuron = Neuron("h" + str(i) + ":" + str(j))
+                self.addHiddenNeuron(new_neuron)
+            # connecting input neurons to hidden neurons
+            if i == 0:
+                for inputNeuron in self.inputNeurons:
+                    for hiddenNeuron in self.hiddenNeurons:
+                        self.connect(inputNeuron, hiddenNeuron)
+        #                 print("Connecting neurons...")
+        #                 for n in self.hiddenNeurons:
+        #                     print(f"{n.name} {n.weights} {n.inputLinks}")
 
-            for i in range(hiddenLayers):
-                # creating neurons on hidden layer
-                for j in range(neuronsInLayer):
-                    new_neuron = Neuron("h" + str(i) + ":" + str(j))
-                    self.addHiddenNeuron(new_neuron)
-                # connecting input neurons to hidden neurons
-                if i == 0:
-                    for inputNeuron in self.inputNeurons:
-                        for hiddenNeuron in self.hiddenNeurons:
-                            self.connect(inputNeuron, hiddenNeuron)
-            #                 print("Connecting neurons...")
-            #                 for n in self.hiddenNeurons:
-            #                     print(f"{n.name} {n.weights} {n.inputLinks}")
+        # print()
 
-            # print()
+        # sorting neurons
+        self.sortNeurons()
 
-            # sorting neurons
-            self.sortNeurons()
+        # creating output neuron
+        outputNeuron = Neuron("o1")
+        outputNeuron.function = sigmoid_tanh_plain
+        self.addHiddenNeuron(outputNeuron)
 
-            # creating output neuron
-            outputNeuron = Neuron("o1")
-            self.addHiddenNeuron(outputNeuron)
+        # connecting neurons to output neuron
+        for neuron in self.layers[-1]:
+            self.connect(neuron, outputNeuron)
 
-            # connecting neurons to output neuron
-            for neuron in self.layers[-1]:
-                self.connect(neuron, outputNeuron)
-
-            # sorting neurons
-            self.sortNeurons()
+        # sorting neurons
+        self.sortNeurons()
 
     def connect(self, neuron1, neuron2):
         """
@@ -214,7 +221,7 @@ class NeuralNetwork:
         # returning list of values of output neurons
         # print([neuron.value for neuron in self.layers[-1]])
         # sys.exit()
-        return [neuron.value for neuron in self.layers[-1]]
+        return [((neuron.value + 1) / 2) for neuron in self.layers[-1]]
 
     def mutate(self, power, maxMutation):
         # mutating hidden layer neurons
@@ -226,7 +233,10 @@ class NeuralNetwork:
     def setInputs(self, inputs):
         for i in range(len(inputs)):
             self.inputNeurons[i].value = inputs[i]
-            # print(f"Input: {inputs[i]} Neuron name: {self.inputNeurons[i].name} Neuron value: {self.inputNeurons[i].value}")
+        # print(f"Input: {inputs[i]} Neuron name: {self.inputNeurons[i].name} Neuron value: {self.inputNeurons[i].value}")
+
+    def __repr__(self):
+        return str(self.neurons)
 
 
 def lists_average(list1, list2):
@@ -240,16 +250,14 @@ def lists_average(list1, list2):
     return avg_list
 
 
-def neuron_crossover(neuron1, neuron2):
+def neuron_crossover(neuron, parent1, parent2):
     """
     Crossover operator for two neurons. Used by genetic algorithm.
     """
-    new_neuron = neuron1
-    averagedWeights = lists_average(neuron1.weights, neuron2.weights)
-    averagedBiase = (neuron1.bias + neuron2.bias) / 2.0
-    new_neuron.weights = averagedWeights
-    new_neuron.bias = averagedBiase
-    return new_neuron
+    averagedWeights = lists_average(parent1.weights, parent2.weights)
+    averagedBias = (parent1.bias + parent2.bias) / 2.0
+    neuron.weights = averagedWeights
+    neuron.bias = averagedBias
 
 
 def crossover(network1, network2):
@@ -257,11 +265,13 @@ def crossover(network1, network2):
     Crossover operator for two neural networks. Used by genetic algorithm.
     """
 
+    new_network = NeuralNetwork(network1.hiddenLayers, network1.neuronsInLayer)
+
     # crossover of hidden layer neurons
     for i in range(len(network1.hiddenNeurons)):
-        network1.hiddenNeurons[i] = neuron_crossover(network1.hiddenNeurons[i], network2.hiddenNeurons[i])
+        neuron_crossover(new_network.hiddenNeurons[i], network1.hiddenNeurons[i], network2.hiddenNeurons[i])
 
-    return network1
+    return new_network
 
 
 @cuda.jit(device=True)
@@ -306,3 +316,41 @@ def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
     o1_out = sigmoid_tanh_plain(o1_out)
 
     return o1_out
+
+
+if __name__ == "__main__":
+
+    import graphics
+    import multiprocessing
+
+    network = NeuralNetwork(1, 1)
+    # for neuron in network.hiddenNeurons:
+    #     for i in range(len(neuron.weights)):
+    #         neuron.weights[i] = -1
+    # network.hiddenNeurons[2].weights = [1, 1]
+    network.hiddenNeurons[0].weights[0] = 1
+    network.hiddenNeurons[0].weights[1] = 1
+    network.hiddenNeurons[1].weights[0] = 1
+    network.hiddenNeurons[0].bias = -500
+    # network.mutate(100, 1000)
+
+    data_points = []
+    data_points.append(graphics.Point(2, 3, (255, 0, 0)))
+
+    renderer = graphics.Graphics()
+    points_queue = multiprocessing.Queue()
+    renderer.start(points_queue, data_points)
+
+    points = []
+    for i in range(graphics.ARR_SIZE_X):
+        for j in range(graphics.ARR_SIZE_Y):
+            result = network.feedforward([i * graphics.STEP_X, j * graphics.STEP_Y])[0]
+            points.append(result)
+
+    # sending resulting list to the renderer
+    points_queue.put(points)
+
+    result1 = network.feedforward([0, 0])
+    print(network)
+    result2 = network.feedforward([508, 508])
+    print(network)

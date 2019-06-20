@@ -13,17 +13,17 @@ import sys
 POPULATION_SIZE = 2             # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 100            # how likely small mutations are
-MAX_MUTATION = 0.1              # limits mutation of weights to that amount at once
+MAX_MUTATION = 0.1             # limits mutation of weights to that amount at once
 ITERATIONS = 10000              # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 1        # number of neurons in the hidden layer
+HIDDEN_LAYER_NEURONS = 2        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
 
 # output settings
 PRINT_WEIGHTS = False           # print weights of all neurons every generation
-PRINT_GEN_NUMBER = True         # print generation number every generation
+PRINT_GEN_NUMBER = False        # print generation number every generation
 RENDER_EVERY = 10               # render every N generation, useful if there are a lot of neurons and render is too slow
 
 last_id = 0                     # global variable for last used id of network, used to assign ids
@@ -193,8 +193,9 @@ def train(weights, heights, genders):
         # for neuron in generation[0].hiddenNeurons:
         #     print(f"{neuron.name} {neuron.weights}")
 
-        # print(generation[1])
-        # for neuron in generation[1].hiddenNeurons:
+        print(f"GEN {iteration + 1}")
+        # print(generation[0])
+        # for neuron in generation[0].hiddenNeurons:
         #     print(f"{neuron.name} {neuron.weights}")
 
         network_errors_mean = [0] * POPULATION_SIZE
@@ -208,11 +209,16 @@ def train(weights, heights, genders):
                 error = abs(result - (0 if genders[i] == "M" else 1))
                 network_errors_mean[i] += error
             network_errors_mean[i] /= len(weights)
-        # print()
+
+        print(network_errors_mean)
 
         # calculating fitness
         for i in range(POPULATION_SIZE):
             generation[i].fitness = 1.0 / (network_errors_mean[i] + 1.0)
+
+        for n in generation:
+            print(f"Fitness: {n.fitness}")
+        print()
 
         # list has to be sorted
         generation.sort(key=lambda x: x.fitness, reverse=True)
