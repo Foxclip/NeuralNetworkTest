@@ -9,6 +9,7 @@ import sys
 import copy
 
 neuron_id = 0
+network_id = 0
 
 CLIP_VALUES = False             # limit weights and biases to 0.0..1.0
 MAX_NEURONS = 100               # needed for memry allocation on CUDA
@@ -131,6 +132,12 @@ class NeuralNetwork:
 
     def __init__(self, hiddenLayers, neuronsInLayer):
 
+        global network_id
+        self.id = network_id
+        network_id += 1
+
+        self.fitness = 0
+
         self.hiddenLayers = hiddenLayers
         self.neuronsInLayer = neuronsInLayer
 
@@ -221,7 +228,7 @@ class NeuralNetwork:
         # returning list of values of output neurons
         # print([neuron.value for neuron in self.layers[-1]])
         # sys.exit()
-        return [((neuron.value + 1) / 2) for neuron in self.layers[-1]]
+        return [neuron.value for neuron in self.layers[-1]]
 
     def mutate(self, power, maxMutation):
         # mutating hidden layer neurons
@@ -236,7 +243,7 @@ class NeuralNetwork:
         # print(f"Input: {inputs[i]} Neuron name: {self.inputNeurons[i].name} Neuron value: {self.inputNeurons[i].value}")
 
     def __repr__(self):
-        return str(self.neurons)
+        return f"id: {self.id} fitness: {self.fitness:f} | {self.neurons}"
 
 
 def lists_average(list1, list2):
@@ -323,34 +330,50 @@ if __name__ == "__main__":
     import graphics
     import multiprocessing
 
-    network = NeuralNetwork(1, 1)
+    network = NeuralNetwork(1, 2)
     # for neuron in network.hiddenNeurons:
     #     for i in range(len(neuron.weights)):
     #         neuron.weights[i] = -1
     # network.hiddenNeurons[2].weights = [1, 1]
-    network.hiddenNeurons[0].weights[0] = 1
-    network.hiddenNeurons[0].weights[1] = 1
-    network.hiddenNeurons[1].weights[0] = 1
-    network.hiddenNeurons[0].bias = -500
+    network.hiddenNeurons[0].weights[0] = -1.056683919646388
+    network.hiddenNeurons[0].weights[1] = 3.020929543733549
+    network.hiddenNeurons[0].bias = -0.3300333544395284
+    network.hiddenNeurons[1].weights[0] = -0.34942471544975495
+    network.hiddenNeurons[1].weights[1] = -0.9195346857192161
+    network.hiddenNeurons[1].bias = -0.6667485333288657
+    network.hiddenNeurons[2].weights[0] = 2.643323489075672
+    network.hiddenNeurons[2].weights[1] = 6.692226208826651
+    network.hiddenNeurons[2].bias = 0.9135760573530339
+    weight_mean = 141.5
+    height_mean = 68.5
     # network.mutate(100, 1000)
 
     data_points = []
-    data_points.append(graphics.Point(2, 3, (255, 0, 0)))
+    data_points.append(graphics.Point(123, 65, (255, 0, 0)))
+    data_points.append(graphics.Point(160, 72, (0, 0, 255)))
 
     renderer = graphics.Graphics()
     points_queue = multiprocessing.Queue()
     renderer.start(points_queue, data_points)
 
     points = []
-    for i in range(graphics.ARR_SIZE_X):
-        for j in range(graphics.ARR_SIZE_Y):
-            result = network.feedforward([i * graphics.STEP_X, j * graphics.STEP_Y])[0]
+    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+    # arrayScaleFactorX = graphics.DATA_MAX_X / graphics.ARR_SIZE_X
+    # arrayScaleFactorY = graphics.DATA_MAX_X / graphics.ARR_SIZE_X
+    for y in range(graphics.ARR_SIZE_Y):
+        for x in range(graphics.ARR_SIZE_X):
+            # result = network.feedforward([i * graphics.STEP_X, j * graphics.STEP_Y])[0]
+            print(x * graphics.STEP_X)
+            print(y * graphics.STEP_Y)
+            result = network.feedforward([int(x * graphics.STEP_X / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y * graphics.STEP_Y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])[0]
+            print(network)
             points.append(result)
 
     # sending resulting list to the renderer
     points_queue.put(points)
 
-    result1 = network.feedforward([0, 0])
-    print(network)
-    result2 = network.feedforward([508, 508])
-    print(network)
+    # result1 = network.feedforward([123 - , 65])
+    # print(network)
+    # result2 = network.feedforward([160, 72])
+    # print(network)
