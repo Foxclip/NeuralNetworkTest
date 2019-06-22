@@ -5,8 +5,6 @@ import numba
 from numba import float32
 from numba import cuda
 import topogroup
-import sys
-import copy
 
 neuron_id = 0
 network_id = 0
@@ -111,7 +109,6 @@ class Neuron(_Neuron):
         # mutating weights
         for i in range(len(self.weights)):
             weight_mutation_rate = random.random()**power * maxMutation
-            print(weight_mutation_rate)
             self.weights[i] += random.uniform(-weight_mutation_rate, weight_mutation_rate)
 
         # mutating bias
@@ -175,7 +172,6 @@ class NeuralNetwork:
                         self.connect(previousLayerNeuron, currentLayerNeuron)
             previousLayer = currentLayer
 
-        # sorting neurons
         self.sortNeurons()
 
         # creating output neuron
@@ -183,7 +179,7 @@ class NeuralNetwork:
         outputNeuron.function = sigmoid_tanh_plain
         self.addHiddenNeuron(outputNeuron)
 
-        # connecting neurons to output neuron
+        # connecting neurons in the last hidden layer to the output neuron
         for neuron in self.layers[-1]:
             self.connect(neuron, outputNeuron)
 

@@ -6,21 +6,18 @@ import multiprocessing
 from numba import cuda
 import time
 import network
-import math
-import sys
-import pickle
 
 # genetic algorithm settings
-POPULATION_SIZE = 2             # amount of neural networks in each generation
+POPULATION_SIZE = 10            # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 10             # how likely small mutations are
 MAX_MUTATION = 1000             # limits mutation of weights to that amount at once
-ITERATIONS = 1000               # generation limit
+ITERATIONS = 1000000            # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
 HIDDEN_LAYER_NEURONS = 16       # number of neurons in the hidden layer
-HIDDEN_LAYERS = 2               # number of hidden layers
+HIDDEN_LAYERS = 1               # number of hidden layers
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
