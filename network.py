@@ -14,18 +14,17 @@ MAX_NEURONS = 100               # needed for memry allocation on CUDA
 
 
 def sigmoid_exp(x):
+    """
+    Sigmoid function, calculated using exponent.
+    """
     return 1 / (1 + np.exp(-x))
-
-
-def relu(x):
-    return max(0, x)
 
 
 @cuda.jit(device=True)
 def sigmoid_tanh(x):
     """
-    same as sigmoid_exp, but calculated using tanh
-    sigmoid_exp gives overflow error if weights are too high, but this function does not
+    Same as sigmoid_exp, but calculated using tanh.
+    sigmoid_exp gives overflow error if weights are too high, but this function does not.
     """
     return (math.tanh(x) + 1) / 2
 
@@ -88,7 +87,6 @@ class Neuron(_Neuron):
         """
         Calculates output of neuron using inputs, weights and bias.
         """
-        # print(f"Feedforward before {self.name} {self.value}")
         inputs = [neuron.value for neuron in self.inputLinks]
         total = 0
         for i in range(len(inputs)):
@@ -96,16 +94,11 @@ class Neuron(_Neuron):
         total = total + self.bias
         output = self.function(total)
         self.value = output
-        # print("    NEURON_FEED")
-        # print(f"    {self.id} {self.weights}")
-
-        # print(f"Feedforward after {self.name} {self.value} {self.weights}")
 
     def mutate(self, power, maxMutation):
         """
         Mutation operator, used by genetic algorithm.
         """
-
         # mutating weights
         for i in range(len(self.weights)):
             weight_mutation_rate = random.random()**power * maxMutation
@@ -120,8 +113,6 @@ class Neuron(_Neuron):
             self.weights = np.clip(self.weights, -1.0, 1.0)
             self.bias = np.clip(self.bias, -1.0, 1.0)
 
-        # print(f"{self.name}: {self.weights}")
-
     def __repr__(self):
         return f"{self.name}-{self.weights}({self.bias})->{self.value}"
 
@@ -130,14 +121,16 @@ class NeuralNetwork:
 
     def __init__(self, hiddenLayers, neuronsInLayer):
 
+        self.hiddenLayers = hiddenLayers
+        self.neuronsInLayer = neuronsInLayer
+
+        # id is useful for debugging
         global network_id
         self.id = network_id
         network_id += 1
 
+        # used by genetic algorithm
         self.fitness = 0
-
-        self.hiddenLayers = hiddenLayers
-        self.neuronsInLayer = neuronsInLayer
 
         # lists of neurons
         self.neurons = []
@@ -172,6 +165,7 @@ class NeuralNetwork:
                         self.connect(previousLayerNeuron, currentLayerNeuron)
             previousLayer = currentLayer
 
+        # to connect output neuron to the last layer, we need to know where that layer is
         self.sortNeurons()
 
         # creating output neuron
@@ -183,7 +177,7 @@ class NeuralNetwork:
         for neuron in self.layers[-1]:
             self.connect(neuron, outputNeuron)
 
-        # sorting neurons
+        # because output neuron was added, neurons have to be sorted again
         self.sortNeurons()
 
     def connect(self, neuron1, neuron2):
@@ -201,49 +195,41 @@ class NeuralNetwork:
         self.neurons.append(neuron)
 
     def sortNeurons(self):
+        """
+        Sorts neurons in layers.
+        Does not affect feedforward.
+        Useful for sending neurons to GPU in layers.
+        """
         self.layers = topogroup.groupNodes(self.neurons)
 
     def feedforward(self, inputs):
-
-        # print("FEED")
-        # print(self)
-        # for neuron in self.hiddenNeurons:
-        #     print(f"{neuron.id}: {neuron.weights}")
-        # print("/FEED")
-
+        """
+        Runs neural network.
+        """
+        # input neurons must have value set
         self.setInputs(inputs)
-
-        # for layer in self.layers:
-        #     for neuron in layer:
-        #         try:
-        #             print(f"{neuron.id}: {neuron.weights}")
-        #         except Exception as e:
-        #             pass
 
         # calculating outputs of hidden layer neurons
         for layer in self.layers:
             for neuron in layer:
                 neuron.feedforward()
 
-        # for neuron in self.neurons:
-        #     print(f"{neuron.name}: {neuron.value}")
-
-        # returning list of values of output neurons
-        # print([neuron.value for neuron in self.layers[-1]])
-        # sys.exit()
+        # returning values of neurons on the last layer
         return [neuron.value for neuron in self.layers[-1]]
 
     def mutate(self, power, maxMutation):
-        # mutating hidden layer neurons
-        # for neuron in self.hiddenNeurons:
-        #     print(f"Before {neuron.name} {neuron.weights}")
+        """
+        Mutates hidden layer neurons
+        """
         for neuron in self.hiddenNeurons:
             neuron.mutate(power, maxMutation)
 
     def setInputs(self, inputs):
+        """
+        Sets values to input neurons.
+        """
         for i in range(len(inputs)):
             self.inputNeurons[i].value = inputs[i]
-        # print(f"Input: {inputs[i]} Neuron name: {self.inputNeurons[i].name} Neuron value: {self.inputNeurons[i].value}")
 
     def __repr__(self):
         s = f"id: {self.id}\n"
@@ -277,7 +263,6 @@ def crossover(network1, network2):
     """
     Crossover operator for two neural networks. Used by genetic algorithm.
     """
-
     new_network = NeuralNetwork(network1.hiddenLayers, network1.neuronsInLayer)
 
     # crossover of hidden layer neurons
@@ -293,7 +278,6 @@ def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
     Feedforward function
     Runs on CUDA device
     """
-
     # CUDA array for temporarily storing outputs of hidden layer neurons
     outputs = numba.cuda.local.array(MAX_NEURONS, float32)
 
@@ -313,8 +297,9 @@ def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
 
 
 def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
-    """Non-CUDA version of NNfeedf"""
-
+    """
+    Non-CUDA version of NNfeedf
+    """
     # calculating outputs of hidden layer neurons
     outputs = []
     for i in range(len(hBiases)):

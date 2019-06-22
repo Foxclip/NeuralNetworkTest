@@ -23,8 +23,6 @@ HIDDEN_LAYERS = 1               # number of hidden layers
 PRINT_GEN_NUMBER = True         # print generation number every generation
 RENDER_EVERY = 1000             # render every N generation, useful if there are a lot of neurons and render is too slow
 
-last_id = 0                     # global variable for last used id of network, used to assign ids
-
 
 @cuda.jit
 def render_graph(hWeights, hBiases, oWeights, oBias, points):
