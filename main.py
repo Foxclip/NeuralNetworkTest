@@ -6,26 +6,27 @@ import multiprocessing
 from numba import cuda
 import time
 import network
+import sys
 
 # genetic algorithm settings
 POPULATION_SIZE = 10            # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 10             # how likely small mutations are
 MAX_MUTATION = 1000             # limits mutation of weights to that amount at once
-ITERATIONS = 1000000            # generation limit
+ITERATIONS = 10000              # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 16       # number of neurons in the hidden layer
-HIDDEN_LAYERS = 1               # number of hidden layers
+HIDDEN_LAYER_NEURONS = 2        # number of neurons in the hidden layer
+HIDDEN_LAYERS = 2               # number of hidden layers
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
-RENDER_EVERY = 1000             # render every N generation, useful if there are a lot of neurons and render is too slow
+RENDER_EVERY = 10               # render every N generation, useful if there are a lot of neurons and render is too slow
 
 
 @cuda.jit
-def render_graph(hWeights, hBiases, oWeights, oBias, points):
+def render_graph(weightMatrix, biases, neuronCount, points):
     """Calculates outputs of best neural network for rendering them in a separate window"""
 
     # since window dimensions can differ from data dimensions, values have to be scaled
@@ -40,10 +41,30 @@ def render_graph(hWeights, hBiases, oWeights, oBias, points):
     x = pos % graphics.ARR_SIZE_Y * graphics.STEP_X
 
     # running neural network
-    result = network.NNfeedf(hWeights, hBiases, oWeights, oBias, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
+    result = network.NNfeedf(weightMatrix, biases, neuronCount, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
 
     # putting result in the output array
     points[pos] = result
+
+
+def render_graph_plain(weightMatrix, biases, neuronCount, points):
+    """Calculates outputs of best neural network for rendering them in a separate window"""
+
+    # since window dimensions can differ from data dimensions, values have to be scaled
+    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+
+    for pos in range(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y):
+
+        # calculating x and y positions from CUDA thread index
+        y = pos // graphics.ARR_SIZE_Y * graphics.STEP_Y
+        x = pos % graphics.ARR_SIZE_Y * graphics.STEP_X
+
+        # running neural network
+        result = network.NNfeedf_plain(weightMatrix, biases, neuronCount, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
+
+        # putting result in the output array
+        points[pos] = result
 
 
 def calculate_errors_plain(weights, heights, genders, hWeights, hBiases, oWeights, oBiases):
@@ -209,19 +230,20 @@ def train(weights, heights, genders):
             # we want to use not just any network, but the best one
             best_network = generation[0]
 
-            points = []
+            # points = []
 
-            # points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
+            points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
 
-            # # calculating grid of values
-            # render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](np.array(best_network.get_weights()), np.array(best_network.get_biases()), np.array(best_network.get_output_weights()), best_network.get_output_bias(), points)
+            # calculating grid of values
+            render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
+            # render_graph_plain(best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
 
-            scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-            scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
-            for y in range(graphics.ARR_SIZE_Y):
-                for x in range(graphics.ARR_SIZE_X):
-                    result = best_network.feedforward([int(x * graphics.STEP_X / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y * graphics.STEP_Y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])[0]
-                    points.append(result)
+            # scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
+            # scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
+            # for y in range(graphics.ARR_SIZE_Y):
+            #     for x in range(graphics.ARR_SIZE_X):
+            #         result = best_network.feedforward([int(x * graphics.STEP_X / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y * graphics.STEP_Y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])[0]
+            #         points.append(result)
 
             # sending resulting list to the renderer
             points_queue.put(points)

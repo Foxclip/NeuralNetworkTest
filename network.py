@@ -5,12 +5,13 @@ import numba
 from numba import float32
 from numba import cuda
 import topogroup
+import sys
 
 neuron_id = 0
 network_id = 0
 
 CLIP_VALUES = False             # limit weights and biases to 0.0..1.0
-MAX_NEURONS = 100               # needed for memry allocation on CUDA
+MAX_NEURONS = 100               # needed for memory allocation on CUDA
 
 
 def sigmoid_exp(x):
@@ -67,6 +68,7 @@ class InputNeuron(_Neuron):
     def __init__(self, name):
         _Neuron.__init__(self, name)
         self.value = 0
+        self.bias = 0
 
     def feedforward(self):
         pass
@@ -231,6 +233,25 @@ class NeuralNetwork:
         for i in range(len(inputs)):
             self.inputNeurons[i].value = inputs[i]
 
+    def getWeightsMatrix(self):
+        matrix_size = len(self.neurons)
+        matrix = np.zeros((matrix_size, matrix_size))
+        for left in range(matrix_size):
+            for right in range(matrix_size):
+                # if self.neurons[right] in self.neurons[left].outputLinks:
+                #     index_in_weights = self.neurons[right].inputLinks.index(self.neurons[left])
+                #     matrix[left, right] = self.neurons[right].weights[index_in_weights]
+                if self.neurons[left] in self.neurons[right].inputLinks:
+                    index_in_weights = self.neurons[right].inputLinks.index(self.neurons[left])
+                    matrix[right, left] = self.neurons[right].weights[index_in_weights]
+        return matrix
+
+    def getBiases(self):
+        return [neuron.bias for neuron in self.neurons]
+
+    def getValues(self):
+        return [neuron.value for neuron in self.neurons]
+
     def __repr__(self):
         s = f"id: {self.id}\n"
         for neuron in self.neurons:
@@ -273,47 +294,71 @@ def crossover(network1, network2):
 
 
 @cuda.jit(device=True)
-def NNfeedf(hWeights, hBiases, oWeights, oBias, x, y):
+def NNfeedf(weightsMatrix, biases, neuronCount, x, y):
     """
     Feedforward function
     Runs on CUDA device
     """
-    # CUDA array for temporarily storing outputs of hidden layer neurons
-    outputs = numba.cuda.local.array(MAX_NEURONS, float32)
 
-    # calculating outputs of hidden layer neurons
-    for i in range(len(hBiases)):
-        output = sigmoid_tanh(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
-        outputs[i] = output
+    # CUDA array for storing outputs
+    values = numba.cuda.local.array(MAX_NEURONS, float32)
+    values[0] = x
+    values[1] = y
+    for neuron_i in range(neuronCount):
+        for other_neuron_i in range(neuronCount):
+            values[neuron_i] += values[other_neuron_i] * weightsMatrix[neuron_i, other_neuron_i]
+        values[neuron_i] += biases[neuron_i]
+        if neuron_i >= 2:
+            values[neuron_i] = math.tanh(values[neuron_i])
 
-    # calculating output of the output neuron
-    o1_out = 0
-    for i in range(len(outputs)):
-        o1_out = o1_out + outputs[i] * oWeights[i]
-    o1_out = o1_out + oBias
-    o1_out = sigmoid_tanh(o1_out)
-
-    return o1_out
+    return (values[neuronCount - 1] + 1) / 2.0
 
 
-def NNfeedf_plain(hWeights, hBiases, oWeights, oBias, x, y):
+def NNfeedf_plain(weightsMatrix, biases, neuronCount, x, y):
     """
     Non-CUDA version of NNfeedf
     """
-    # calculating outputs of hidden layer neurons
-    outputs = []
-    for i in range(len(hBiases)):
-        output = sigmoid_tanh_plain(x * hWeights[i * 2] + y * hWeights[i * 2 + 1] + hBiases[i])
-        outputs.append(output)
+    values = np.zeros(MAX_NEURONS)
+    values[0] = x
+    values[1] = y
+    for neuron_i in range(neuronCount):
+        for other_neuron_i in range(neuronCount):
+            values[neuron_i] += values[other_neuron_i] * weightsMatrix[neuron_i, other_neuron_i]
+        values[neuron_i] += biases[neuron_i]
+        if neuron_i >= 2:
+            values[neuron_i] = math.tanh(values[neuron_i])
+    result = (values[neuronCount - 1] + 1) / 2.0
+    return result
 
-    # calculating output of the output neuron
-    o1_out = 0
-    for i in range(len(outputs)):
-        o1_out = o1_out + outputs[i] * oWeights[i]
-    o1_out = o1_out + oBias
-    o1_out = sigmoid_tanh_plain(o1_out)
 
-    return o1_out
+@cuda.jit
+def process_array(array, N):
+    pos = cuda.grid(1)
+    row = pos // N
+    column = pos % N
+    array[row, column] *= 2.0
+
+
+# @cuda.jit
+# def cuda_layered_render(weightsMatrix, biases, values, isFirstHiddenLayer):
+#     # print(f"Weights matrix:\n{weightsMatrix}")
+#     # print(f"Biases:\n{biases}")
+#     # print(f"Values:\n{values}")
+#     # print(f"IsFirst: {isFirstHiddenLayer}")
+#     # print()
+#     pos = cuda.grid(1)
+#     x = pos // graphics.ARR_SIZE_X * graphics.STEP_X
+#     y = pos % graphics.ARR_SIZE_X * graphics.STEP_Y
+
+
+# def layered_render(network):
+#     total_neuron_count = len(network.neurons)
+#     weights_matrix = network.getWeightsMatrix()
+#     biases = np.array(network.getBiases())
+#     values_size = graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y * total_neuron_count
+#     values = np.zeros(values_size)
+#     for layer_i in range(1, len(network.layers)):
+#         cuda_layered_render(weights_matrix, biases, values, layer_i == 1)
 
 
 if __name__ == "__main__":
@@ -321,19 +366,28 @@ if __name__ == "__main__":
     import graphics
     import multiprocessing
 
-    network = NeuralNetwork(5, 5)
+    network = NeuralNetwork(1, 2)
 
     network.layers[1][0].weights[0] = 1
+    network.layers[1][1].weights[0] = 1
     network.layers[2][0].weights[0] = 1
-    network.layers[3][0].weights[0] = 1
-    network.layers[4][0].weights[0] = 1
-    network.layers[5][0].weights[0] = 1
-    # network.layers[1][0].weights[1] = -1
-    # network.layers[2][0].weights[0] = 1
-    network.layers[-1][0].weights[0] = 1
+    # network.layers[3][0].weights[0] = 1
+    # network.layers[4][0].weights[0] = 1
+    # network.layers[5][0].weights[0] = 1
+    # # network.layers[1][0].weights[1] = -1
+    # # network.layers[2][0].weights[0] = 1
+    # network.layers[-1][0].weights[0] = 1
 
-    result = network.feedforward([2, 3])
+    # result = network.feedforward([2, 3])
     print(network)
+
+    matrix = network.getWeightsMatrix()
+    print(matrix)
+
+    # layered_render(network)
+    N = len(network.neurons)
+    process_array[N, N](matrix, len(network.neurons))
+    print(matrix)
 
     # weight_mean = 141.5
     # height_mean = 68.5
