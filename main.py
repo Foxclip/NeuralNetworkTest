@@ -178,16 +178,8 @@ def train(weights, heights, genders):
         for i in range(POPULATION_SIZE):
             generation[i].fitness = 1.0 / (network_errors_mean[i] + 1.0)
 
-        # print("After calculating fitness:")
-        # for netw in generation:
-        #     print(f"    {netw}")
-
         # list has to be sorted
         generation.sort(key=lambda x: x.fitness, reverse=True)
-
-        # print("After sorting:")
-        # for netw in generation:
-        #     print(f"    {netw}")
 
         # updating minimal error
         if(1.0 / generation[0].fitness - 1 < minimal_error):
@@ -219,11 +211,6 @@ def train(weights, heights, genders):
         # swapping generations
         generation = new_generation
 
-        # print("After creating new generation:")
-        # for netw in generation:
-        #     print(f"    {netw}")
-        # print()
-
         # rendering results in a separate window
         if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0 or iteration == ITERATIONS - 1):
 
@@ -237,13 +224,6 @@ def train(weights, heights, genders):
             # calculating grid of values
             render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
             # render_graph_plain(best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
-
-            # scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-            # scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
-            # for y in range(graphics.ARR_SIZE_Y):
-            #     for x in range(graphics.ARR_SIZE_X):
-            #         result = best_network.feedforward([int(x * graphics.STEP_X / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y * graphics.STEP_Y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0)])[0]
-            #         points.append(result)
 
             # sending resulting list to the renderer
             points_queue.put(points)
@@ -260,10 +240,6 @@ def train(weights, heights, genders):
         # if minimal error is zero, there is no point to continue training
         if minimal_error == 0.0:
             break
-
-        # print()
-        # if(iteration >= 2):
-        #     sys.exit()
 
     print()
 
@@ -368,16 +344,6 @@ if __name__ == '__main__':
 
     # training
     best_network = train(list(df["Weight"]), list(df["Height"]), list(df["Gender"]))
-    # print(f"Best network: {best_network}")
-    # open("network.txt", "w")
-    # file = open("network.txt", "a")
-    # for neuron_i in range(len(best_network.hiddenNeurons)):
-    #     for weight_i in range(len(best_network.hiddenNeurons[neuron_i].weights)):
-    #         file.write(f"network.hiddenNeurons[{neuron_i}].weights[{weight_i}] = {best_network.hiddenNeurons[neuron_i].weights[weight_i]}\n")
-    #     file.write(f"network.hiddenNeurons[{neuron_i}].bias = {best_network.hiddenNeurons[neuron_i].bias}\n")
-    # file.write(f"weight_mean = {weight_mean}")
-    # file.write(f"height_mean = {height_mean}")
-    # file.close()
 
     print()
 
