@@ -48,26 +48,6 @@ def render_graph(weightMatrix, biases, neuronCount, points):
     points[pos] = result
 
 
-def render_graph_plain(weightMatrix, biases, neuronCount, points):
-    """Calculates outputs of best neural network for rendering them in a separate window"""
-
-    # since window dimensions can differ from data dimensions, values have to be scaled
-    scaleFactorX = graphics.SCR_WIDTH / graphics.DATA_MAX_X
-    scaleFactorY = graphics.SCR_HEIGHT / graphics.DATA_MAX_Y
-
-    for pos in range(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y):
-
-        # calculating x and y positions from CUDA thread index
-        y = pos // graphics.ARR_SIZE_Y * graphics.STEP_Y
-        x = pos % graphics.ARR_SIZE_Y * graphics.STEP_X
-
-        # running neural network
-        result = network.NNfeedf_plain(weightMatrix, biases, neuronCount, int(x / scaleFactorX - weight_mean + graphics.STEP_X / 2.0), int(y / scaleFactorY - height_mean + graphics.STEP_Y / 2.0))
-
-        # putting result in the output array
-        points[pos] = result
-
-
 def center_column(data_frame, column_name):
     """centers column of numbers stored in pandas DataFrame around mean value of these numbers"""
     mean = np.mean(list(data_frame[column_name]))
