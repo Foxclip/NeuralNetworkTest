@@ -7,18 +7,19 @@ from numba import cuda
 import time
 import network
 import sys
+import plot
 
 # genetic algorithm settings
 POPULATION_SIZE = 10            # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 10             # how likely small mutations are
-MAX_MUTATION = 1000             # limits mutation of weights to that amount at once
+MAX_MUTATION = 0.1              # limits mutation of weights to that amount at once
 ITERATIONS = 10000              # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 2        # number of neurons in the hidden layer
-HIDDEN_LAYERS = 2               # number of hidden layers
+HIDDEN_LAYER_NEURONS = 8        # number of neurons in the hidden layer
+HIDDEN_LAYERS = 1               # number of hidden layers
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
@@ -232,6 +233,9 @@ def train(weights, heights, genders):
             print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
             # print("Generation " + str(iteration + 1) + " " + str(minimal_error))
 
+        # adding point to plot
+        plot_queue.put(minimal_error)
+
         # if minimal error goes below threshold, training stops
         if MINIMAL_ERROR_SHUTDOWN:
             if minimal_error < 1.0 / len(weights) / 2:
@@ -339,6 +343,10 @@ if __name__ == '__main__':
 
     # strting renderer
     renderer.start(points_queue, data_points)
+
+    # starting plot process
+    plot_queue = multiprocessing.Queue()
+    plot.start(plot_queue)
 
     time1 = time.time()
 
