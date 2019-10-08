@@ -31,5 +31,5 @@ def update(frame):
 def anim(name, queue):
     global plot_queue
     plot_queue = queue
-    ani = FuncAnimation(fig, update, init_func=init, interval=1)
+    ani = FuncAnimation(fig, update, init_func=init, interval=10)
     plt.show()

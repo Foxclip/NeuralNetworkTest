@@ -171,7 +171,6 @@ def train(weights, heights, genders):
             for j in range(len(weights)):
                 result = currentNetwork.feedforward([weights[j], heights[j]])[0]
                 error = abs(result - (0 if genders[j] == "M" else 1))
-                # print(f"Error is: id:{currentNetwork.id} data:{j} gender:{genders[j]} result:{result} error:{error}")
                 network_errors_mean[i] += error
             network_errors_mean[i] /= len(weights)
 
@@ -224,14 +223,12 @@ def train(weights, heights, genders):
 
             # calculating grid of values
             render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
-            # render_graph_plain(best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
 
             # sending resulting list to the renderer
             points_queue.put(points)
 
         if PRINT_GEN_NUMBER:
             print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
-            # print("Generation " + str(iteration + 1) + " " + str(minimal_error))
 
         # adding point to plot
         plot_queue.put(minimal_error)
@@ -283,43 +280,7 @@ if __name__ == '__main__':
         ["Tall light man 3", 175, 30, "M"],
         ["Tall light man 4", 169, 10, "M"],
 
-        # ["1", 10, 148, "F"],
-        # ["1", 15, 126, "F"],
-        # ["1", 16, 131, "F"],
-        # ["1", 20, 143, "F"],
-        # ["1", 30, 28, "F"],
-        # ["1", 40, 70, "F"],
-        # ["1", 50, 179, "F"],
-        # ["1", 60, 62, "F"],
-        # ["1", 70, 50, "F"],
-        # ["1", 80, 65, "F"],
-        # ["1", 90, 32, "F"],
-        # ["2", 19, 156, "M"],
-        # ["2", 120, 58, "M"],
-        # ["2", 93, 22, "M"],
-        # ["2", 191, 120, "M"],
-        # ["2", 146, 135, "M"],
-
     ]
-
-    # # randomly generating data
-    # data = []
-    # # for i in range(1000):
-    # #     gender = "M" if random.random() < 0.5 else "F"
-    # #     data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
-
-    # for i in range(500):
-    #     angle = random.random() * 360
-    #     radius = random.uniform(50, 100)
-    #     x = math.cos(angle * math.pi / 180) * radius + 100
-    #     y = math.sin(angle * math.pi / 180) * radius + 100
-    #     data.append([str(i), x, y, "F"])
-    # for i in range(200):
-    #     angle = random.random() * 360
-    #     radius = random.uniform(10, 50)
-    #     x = math.cos(angle * math.pi / 180) * radius + 100
-    #     y = math.sin(angle * math.pi / 180) * radius + 100
-    #     data.append([str(i), x, y, "M"])
 
     # putting data in pandas DataFrame
     df = pd.DataFrame(data, columns=["Name", "Weight", "Height", "Gender"])
