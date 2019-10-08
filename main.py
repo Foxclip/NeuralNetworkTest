@@ -12,7 +12,7 @@ import plot
 POPULATION_SIZE = 10            # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 10             # how likely small mutations are
-MAX_MUTATION = 0.1              # limits mutation of weights to that amount at once
+MAX_MUTATION = 1                # limits mutation of weights to that amount at once
 ITERATIONS = 10000              # generation limit
 MINIMAL_ERROR_SHUTDOWN = True   # stop if error is small enough
 
@@ -105,29 +105,15 @@ def check_stop_conditions(minimal_error, weights):
         return True
 
 
-def create_generation(generation):
+def create_generation(best_network):
 
     new_generation = []
 
     for i in range(POPULATION_SIZE):
-
-        # preserving the best network
-        if i == 0:
-            new_network = network.crossover(generation[0], generation[0])
-            new_generation.append(new_network)
-            continue
-
-        # choosing parents
-        rand1 = random.random()**CROSSOVER_POWER
-        rand2 = random.random()**CROSSOVER_POWER
-        scaledRand1 = rand1 * POPULATION_SIZE
-        scaledRand2 = rand2 * POPULATION_SIZE
-        pick1 = int(scaledRand1)
-        pick2 = int(scaledRand2)
-
-        # crossover and mutation
-        new_network = network.crossover(generation[pick1], generation[pick2])
-        new_network.mutate(MUTATION_POWER, MAX_MUTATION)
+        new_network = best_network.copy()
+        if i > 0:
+            power = i - POPULATION_SIZE + 1
+            new_network.mutate(1, MAX_MUTATION * pow(10, power))
         new_generation.append(new_network)
 
     return new_generation
@@ -160,7 +146,7 @@ def train(weights, heights, genders):
             minimal_error = generation[0].error
 
         # creating new generation
-        generation = create_generation(generation)
+        generation = create_generation(generation[0])
 
         # outputting results
         output(iteration, minimal_error, generation)

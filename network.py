@@ -5,6 +5,7 @@ import numba
 from numba import float32
 from numba import cuda
 import topogroup
+import copy
 
 neuron_id = 0
 network_id = 0
@@ -225,6 +226,12 @@ class NeuralNetwork:
         for neuron in self.hiddenNeurons:
             neuron.mutate(power, maxMutation)
 
+    def copy(self):
+        """
+        Creates deep copy of the network.
+        """
+        return copy.deepcopy(self)
+
     def setInputs(self, inputs):
         """
         Sets values to input neurons.
@@ -267,29 +274,6 @@ def lists_average(list1, list2):
     for i in range(len(list1)):
         avg_list.append((list1[i] + list2[i]) / 2.0)
     return avg_list
-
-
-def neuron_crossover(neuron, parent1, parent2):
-    """
-    Crossover operator for two neurons. Used by genetic algorithm.
-    """
-    averagedWeights = lists_average(parent1.weights, parent2.weights)
-    averagedBias = (parent1.bias + parent2.bias) / 2.0
-    neuron.weights = averagedWeights
-    neuron.bias = averagedBias
-
-
-def crossover(network1, network2):
-    """
-    Crossover operator for two neural networks. Used by genetic algorithm.
-    """
-    new_network = NeuralNetwork(network1.hiddenLayers, network1.neuronsInLayer)
-
-    # crossover of hidden layer neurons
-    for i in range(len(network1.hiddenNeurons)):
-        neuron_crossover(new_network.hiddenNeurons[i], network1.hiddenNeurons[i], network2.hiddenNeurons[i])
-
-    return new_network
 
 
 @cuda.jit(device=True)
