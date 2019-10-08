@@ -150,16 +150,14 @@ def train(weights, heights, genders):
         # calculating errors
         network_errors_mean = calculate_errors(weights, heights, genders, generation)
 
-        # calculating fitness
+        # sorting list
         for i in range(POPULATION_SIZE):
-            generation[i].fitness = 1.0 / (network_errors_mean[i] + 1.0)
-
-        # list has to be sorted
-        generation.sort(key=lambda x: x.fitness, reverse=True)
+            generation[i].error = network_errors_mean[i]
+        generation.sort(key=lambda x: x.error)
 
         # updating minimal error
-        if(1.0 / generation[0].fitness - 1 < minimal_error):
-            minimal_error = 1.0 / generation[0].fitness - 1
+        if(generation[0].error < minimal_error):
+            minimal_error = generation[0].error
 
         # creating new generation
         generation = create_generation(generation)

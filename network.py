@@ -5,7 +5,6 @@ import numba
 from numba import float32
 from numba import cuda
 import topogroup
-import sys
 
 neuron_id = 0
 network_id = 0
@@ -132,7 +131,7 @@ class NeuralNetwork:
         network_id += 1
 
         # used by genetic algorithm
-        self.fitness = 0
+        self.error = 1
 
         # lists of neurons
         self.neurons = []
