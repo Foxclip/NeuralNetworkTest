@@ -6,7 +6,6 @@ import multiprocessing
 from numba import cuda
 import time
 import network
-import sys
 import plot
 
 # genetic algorithm settings
@@ -15,7 +14,7 @@ CROSSOVER_POWER = 2             # increasing this number will cause best network
 MUTATION_POWER = 10             # how likely small mutations are
 MAX_MUTATION = 0.1              # limits mutation of weights to that amount at once
 ITERATIONS = 10000              # generation limit
-MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
+MINIMAL_ERROR_SHUTDOWN = True   # stop if error is small enough
 
 # neural network settings
 HIDDEN_LAYER_NEURONS = 8        # number of neurons in the hidden layer
@@ -56,6 +55,84 @@ def center_column(data_frame, column_name):
     return mean
 
 
+def calculate_errors(weights, heights, genders, generation):
+    network_errors_mean = [0] * POPULATION_SIZE
+    for i in range(len(generation)):
+        currentNetwork = generation[i]
+        for j in range(len(weights)):
+            result = currentNetwork.feedforward([weights[j], heights[j]])[0]
+            error = abs(result - (0 if genders[j] == "M" else 1))
+            network_errors_mean[i] += error
+        network_errors_mean[i] /= len(weights)
+    return network_errors_mean
+
+
+def render(best_network):
+
+    # initializing array of points
+    points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
+
+    # calculating grid of values
+    render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
+
+    # sending resulting list to the renderer
+    points_queue.put(points)
+
+
+def output(iteration, minimal_error, generation):
+
+    # rendering results in a separate window
+    if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0 or iteration == ITERATIONS - 1):
+        render(generation[0])
+
+    # printing gen number to console
+    if PRINT_GEN_NUMBER:
+        print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
+
+    # adding point to the plot
+    plot_queue.put(minimal_error)
+
+
+def check_stop_conditions(minimal_error, weights):
+
+    # if minimal error goes below threshold, training stops
+    if MINIMAL_ERROR_SHUTDOWN:
+        if minimal_error < 1.0 / len(weights) / 2:
+            return True
+
+    # if minimal error is zero, there is no point to continue training
+    if minimal_error == 0.0:
+        return True
+
+
+def create_generation(generation):
+
+    new_generation = []
+
+    for i in range(POPULATION_SIZE):
+
+        # preserving the best network
+        if i == 0:
+            new_network = network.crossover(generation[0], generation[0])
+            new_generation.append(new_network)
+            continue
+
+        # choosing parents
+        rand1 = random.random()**CROSSOVER_POWER
+        rand2 = random.random()**CROSSOVER_POWER
+        scaledRand1 = rand1 * POPULATION_SIZE
+        scaledRand2 = rand2 * POPULATION_SIZE
+        pick1 = int(scaledRand1)
+        pick2 = int(scaledRand2)
+
+        # crossover and mutation
+        new_network = network.crossover(generation[pick1], generation[pick2])
+        new_network.mutate(MUTATION_POWER, MAX_MUTATION)
+        new_generation.append(new_network)
+
+    return new_generation
+
+
 def train(weights, heights, genders):
     """Trains neural network"""
 
@@ -71,14 +148,7 @@ def train(weights, heights, genders):
     for iteration in range(ITERATIONS):
 
         # calculating errors
-        network_errors_mean = [0] * POPULATION_SIZE
-        for i in range(len(generation)):
-            currentNetwork = generation[i]
-            for j in range(len(weights)):
-                result = currentNetwork.feedforward([weights[j], heights[j]])[0]
-                error = abs(result - (0 if genders[j] == "M" else 1))
-                network_errors_mean[i] += error
-            network_errors_mean[i] /= len(weights)
+        network_errors_mean = calculate_errors(weights, heights, genders, generation)
 
         # calculating fitness
         for i in range(POPULATION_SIZE):
@@ -92,60 +162,12 @@ def train(weights, heights, genders):
             minimal_error = 1.0 / generation[0].fitness - 1
 
         # creating new generation
-        new_generation = []
-        for i in range(POPULATION_SIZE):
+        generation = create_generation(generation)
 
-            # preserving the best network
-            if i == 0:
-                new_network = network.crossover(generation[0], generation[0])
-                new_generation.append(new_network)
-                continue
+        # outputting results
+        output(iteration, minimal_error, generation)
 
-            # choosing parents
-            rand1 = random.random()**CROSSOVER_POWER
-            rand2 = random.random()**CROSSOVER_POWER
-            scaledRand1 = rand1 * POPULATION_SIZE
-            scaledRand2 = rand2 * POPULATION_SIZE
-            pick1 = int(scaledRand1)
-            pick2 = int(scaledRand2)
-
-            # crossover and mutation
-            new_network = network.crossover(generation[pick1], generation[pick2])
-            new_network.mutate(MUTATION_POWER, MAX_MUTATION)
-            new_generation.append(new_network)
-
-        # swapping generations
-        generation = new_generation
-
-        # rendering results in a separate window
-        if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0 or iteration == ITERATIONS - 1):
-
-            # we want to use not just any network, but the best one
-            best_network = generation[0]
-
-            # points = []
-
-            points = np.zeros(graphics.ARR_SIZE_X * graphics.ARR_SIZE_Y)
-
-            # calculating grid of values
-            render_graph[graphics.ARR_SIZE_X, graphics.ARR_SIZE_Y](best_network.getWeightsMatrix(), np.array(best_network.getBiases()), len(best_network.neurons), points)
-
-            # sending resulting list to the renderer
-            points_queue.put(points)
-
-        if PRINT_GEN_NUMBER:
-            print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
-
-        # adding point to plot
-        plot_queue.put(minimal_error)
-
-        # if minimal error goes below threshold, training stops
-        if MINIMAL_ERROR_SHUTDOWN:
-            if minimal_error < 1.0 / len(weights) / 2:
-                break
-
-        # if minimal error is zero, there is no point to continue training
-        if minimal_error == 0.0:
+        if check_stop_conditions(minimal_error, weights):
             break
 
     print()
