@@ -26,6 +26,7 @@ def update(frame):
         ydata.append(plot_queue.get())
         ln.set_data(xdata, ydata)
         ax.set_xlim(0, max(len(xdata), 1))
+        ax.set_ylim(0, max(ydata))
 
 
 def anim(name, queue):

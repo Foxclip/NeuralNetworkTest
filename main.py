@@ -12,11 +12,11 @@ POPULATION_SIZE = 10            # amount of neural networks in each generation
 CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
 MUTATION_POWER = 10             # how likely small mutations are
 MAX_MUTATION = 1                # limits mutation of weights to that amount at once
-ITERATIONS = 10000              # generation limit
-MINIMAL_ERROR_SHUTDOWN = True   # stop if error is small enough
+ITERATIONS = 1000000            # generation limit
+MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 8        # number of neurons in the hidden layer
+HIDDEN_LAYER_NEURONS = 2        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
 
 # output settings
@@ -61,7 +61,7 @@ def calculate_errors(weights, heights, genders, generation):
         for j in range(len(weights)):
             result = currentNetwork.feedforward([weights[j], heights[j]])[0]
             error = abs(result - (0 if genders[j] == "M" else 1))
-            network_errors_mean[i] += error
+            network_errors_mean[i] += error * error
         network_errors_mean[i] /= len(weights)
     return network_errors_mean
 
