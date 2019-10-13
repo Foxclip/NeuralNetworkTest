@@ -37,6 +37,13 @@ def sigmoid_tanh_plain(x):
     return (math.tanh(x) + 1) / 2
 
 
+def tanh_D(value):
+    """
+    Derivative of tanh.
+    """
+    return 1.0 / (math.cosh(value) * math.cosh(value))
+
+
 class _Neuron:
 
     def __init__(self, name):
@@ -44,6 +51,7 @@ class _Neuron:
         self.inputLinks = []
         self.outputLinks = []
         self.function = math.tanh
+        self.derivative = tanh_D
         self.groupId = 0
         self.inputCount = 0
         global neuron_id
@@ -361,16 +369,18 @@ if __name__ == "__main__":
     # # network.layers[2][0].weights[0] = 1
     # network.layers[-1][0].weights[0] = 1
 
-    # result = network.feedforward([2, 3])
     print(network)
+    print()
+    print(network.feedforward([2, 3]))
+    print()
 
-    matrix = network.getWeightsMatrix()
-    print(matrix)
+    # matrix = network.getWeightsMatrix()
+    # print(matrix)
 
     # layered_render(network)
-    N = len(network.neurons)
-    process_array[N, N](matrix, len(network.neurons))
-    print(matrix)
+    # N = len(network.neurons)
+    # process_array[N, N](matrix, len(network.neurons))
+    # print(matrix)
 
     # weight_mean = 141.5
     # height_mean = 68.5

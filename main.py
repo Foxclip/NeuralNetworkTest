@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import random
 import graphics
 import multiprocessing
 from numba import cuda
