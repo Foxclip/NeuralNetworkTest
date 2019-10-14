@@ -4,20 +4,20 @@ import graphics
 import multiprocessing
 from numba import cuda
 import time
+import random
+import math
 import network
 import plot
 
 # genetic algorithm settings
 POPULATION_SIZE = 10            # amount of neural networks in each generation
-CROSSOVER_POWER = 2             # increasing this number will cause best network to be more likey to reproduce
-MUTATION_POWER = 10             # how likely small mutations are
 MAX_MUTATION = 1                # limits mutation of weights to that amount at once
 ITERATIONS = 1000000            # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 2        # number of neurons in the hidden layer
-HIDDEN_LAYERS = 1               # number of hidden layers
+HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
+HIDDEN_LAYERS = 2               # number of hidden layers
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
@@ -54,14 +54,25 @@ def center_column(data_frame, column_name):
     return mean
 
 
+def calculate_sample_error(sample_index, weights, heights, genders, network):
+    """
+    Calculates error on one sample.
+    """
+    result = network.feedforward([weights[sample_index], heights[sample_index]])[0]
+    error = result - (0 if genders[sample_index] == "M" else 1)
+    return error
+
+
 def calculate_errors(weights, heights, genders, generation):
+    """
+    Calculates errors on all samples.
+    """
     network_errors_mean = [0] * POPULATION_SIZE
     for i in range(len(generation)):
         currentNetwork = generation[i]
         for j in range(len(weights)):
-            result = currentNetwork.feedforward([weights[j], heights[j]])[0]
-            error = abs(result - (0 if genders[j] == "M" else 1))
-            network_errors_mean[i] += error * error
+            error = calculate_sample_error(j, weights, heights, genders, currentNetwork)
+            network_errors_mean[i] += error * error / 2  # squared error, division is needed so after differentiation it cancels out
         network_errors_mean[i] /= len(weights)
     return network_errors_mean
 
@@ -165,33 +176,69 @@ if __name__ == '__main__':
     # setting data
     data = [
 
-        ["Alice", 123, 65, "F"],
-        ["Bob", 160, 72, "M"],
-        ["Charlie", 152, 70, "M"],
-        ["Diana", 120, 60, "F"],
-        ["Eugene", 164, 69, "M"],
-        ["Fiona", 129, 65, "F"],
-        ["Garreth", 177, 75, "M"],
-        ["Heather", 135, 55, "F"],
+        # ["Alice", 123, 65, "F"],
+        # ["Bob", 160, 72, "M"],
+        # ["Charlie", 152, 70, "M"],
+        # ["Diana", 120, 60, "F"],
+        # ["Eugene", 164, 69, "M"],
+        # ["Fiona", 129, 65, "F"],
+        # ["Garreth", 177, 75, "M"],
+        # ["Heather", 135, 55, "F"],
 
-        ["Short man 1", 75, 30, "M"],
-        ["Short man 2", 70, 25, "M"],
-        ["Short man 3", 80, 28, "M"],
-        ["Short man 4", 90, 50, "M"],
-        ["Short heavy man 1", 75, 150, "M"],
-        ["Short heavy man 2", 70, 125, "M"],
-        ["Short heavy man 3", 80, 134, "M"],
-        ["Short heavy man 4", 90, 128, "M"],
-        ["Short woman 1", 49, 78, "F"],
-        ["Short woman 2", 58, 74, "F"],
-        ["Short woman 3", 32, 90, "F"],
-        ["Short woman 4", 56, 66, "F"],
-        ["Tall light man 1", 180, 23, "M"],
-        ["Tall light man 2", 170, 20, "M"],
-        ["Tall light man 3", 175, 30, "M"],
-        ["Tall light man 4", 169, 10, "M"],
+        # ["Short man 1", 75, 30, "M"],
+        # ["Short man 2", 70, 25, "M"],
+        # ["Short man 3", 80, 28, "M"],
+        # ["Short man 4", 90, 50, "M"],
+        # ["Short heavy man 1", 75, 150, "M"],
+        # ["Short heavy man 2", 70, 125, "M"],
+        # ["Short heavy man 3", 80, 134, "M"],
+        # ["Short heavy man 4", 90, 128, "M"],
+        # ["Short woman 1", 49, 78, "F"],
+        # ["Short woman 2", 58, 74, "F"],
+        # ["Short woman 3", 32, 90, "F"],
+        # ["Short woman 4", 56, 66, "F"],
+        # ["Tall light man 1", 180, 23, "M"],
+        # ["Tall light man 2", 170, 20, "M"],
+        # ["Tall light man 3", 175, 30, "M"],
+        # ["Tall light man 4", 169, 10, "M"],
+
+        # ["1", 10, 148, "F"],
+        # ["1", 15, 126, "F"],
+        # ["1", 16, 131, "F"],
+        # ["1", 20, 143, "F"],
+        # ["1", 30, 28, "F"],
+        # ["1", 40, 70, "F"],
+        # ["1", 50, 179, "F"],
+        # ["1", 60, 62, "F"],
+        # ["1", 70, 50, "F"],
+        # ["1", 80, 65, "F"],
+        # ["1", 90, 32, "F"],
+        # ["2", 19, 156, "M"],
+        # ["2", 120, 58, "M"],
+        # ["2", 93, 22, "M"],
+        # ["2", 191, 120, "M"],
+        # ["2", 146, 135, "M"],
 
     ]
+
+    # randomly generating data
+    # data = []
+    # for i in range(1000):
+    #     gender = "M" if random.random() < 0.5 else "F"
+    #     data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
+
+    for i in range(500):
+        angle = random.random() * 360
+        radius = random.uniform(50, 100)
+        x = math.cos(angle * math.pi / 180) * radius + 100
+        y = math.sin(angle * math.pi / 180) * radius + 100
+        data.append([str(i), x, y, "M"])
+    for i in range(200):
+        angle = random.random() * 360
+        radius = random.uniform(10, 50)
+        x = math.cos(angle * math.pi / 180) * radius + 100
+        y = math.sin(angle * math.pi / 180) * radius + 100
+        data.append([str(i), x, y, "F"])
 
     # putting data in pandas DataFrame
     df = pd.DataFrame(data, columns=["Name", "Weight", "Height", "Gender"])
