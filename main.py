@@ -18,11 +18,14 @@ MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 # neural network settings
 HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
-LEARNING_RATE = 0.001           # backpropagation learning rate
+
+# backpropagation settings
+LEARNING_RATE = 0.01            # learning rate
+RANDOM_SAMPLE = True            # take one random sample every generation instead of all samples
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
-RENDER_EVERY = 10               # render every N generation, useful if there are a lot of neurons and render is too slow
+RENDER_EVERY = 100              # render every N generation, useful if there are a lot of neurons and render is too slow
 
 
 @cuda.jit
@@ -130,6 +133,34 @@ def create_generation(best_network):
     return new_generation
 
 
+def backpropagate(sample_i, genders, network):
+
+    # calculating some derivatives
+    output_neuron = network.layers[2][0]
+    target = (0 if genders[sample_i] == "M" else 1)
+    d_E_outO = output_neuron.value - target
+    d_outO_netO = output_neuron.derivative(output_neuron.net)
+    d_E_netO = d_E_outO * d_outO_netO
+
+    # updating hidden neuron weights
+    for hidden_i in range(len(network.layers[1])):
+        hidden_neuron = network.layers[1][hidden_i]
+        d_netO_outH = output_neuron.weights[hidden_i]
+        d_outH_netH = hidden_neuron.derivative(hidden_neuron.net)
+        d_E_outH = d_E_netO * d_netO_outH
+        d_E_netH = d_E_outH * d_outH_netH
+        for hidden_weight_i in range(len(hidden_neuron.inputLinks)):
+            d_netH_wi = hidden_neuron.inputLinks[hidden_weight_i].value
+            d_E_wi = d_E_netH * d_netH_wi
+            hidden_neuron.weights[hidden_weight_i] -= LEARNING_RATE * d_E_wi
+
+    # updating output neuron weights
+    for weight_i in range(len(output_neuron.inputLinks)):
+        d_netO_wi = output_neuron.inputLinks[weight_i].value
+        d_E_wi = d_E_netO * d_netO_wi
+        output_neuron.weights[weight_i] -= LEARNING_RATE * d_E_wi
+
+
 def train_random(weights, heights, genders):
     """Trains neural network"""
 
@@ -186,53 +217,26 @@ def train_backprop(weights, heights, genders):
 
         for sample_i in range(len(weights)):
 
-            # choosing sample
-            # sample_index = random.randint(0, len(weights) - 1)
-
             # calculating error
             network_error = calculate_sample_error(sample_i, weights, heights, genders, currentNetwork)
             errors.append(network_error)
 
-            output_neuron = currentNetwork.layers[2][0]
-            target = (0 if genders[sample_i] == "M" else 1)
-            d_E_outO = output_neuron.value - target
-            d_outO_netO = output_neuron.derivative(output_neuron.net)
-            d_E_netO = d_E_outO * d_outO_netO
-            # print(f"net: {net}")
-            # print(f"outp: {outp}")
-            # print(f"target: {target}")
-            # print(f"d_E_o1: {d_E_o1}")
-            # print(f"d_o1_n1: {d_o1_n1}")
-            # print(f"weights[0]: {o1_neuron.weights[0]}")
-            # print()
+            # backpropagation
+            if not RANDOM_SAMPLE:
+                backpropagate(sample_i, genders, currentNetwork)
 
-            for hidden_i in range(len(currentNetwork.layers[1])):
-                hidden_neuron = currentNetwork.layers[1][hidden_i]
-                d_netO_outH = output_neuron.weights[hidden_i]
-                d_outH_netH = hidden_neuron.derivative(hidden_neuron.net)
-                d_E_outH = d_E_netO * d_netO_outH
-                d_E_netH = d_E_outH * d_outH_netH
-                for hidden_weight_i in range(len(hidden_neuron.inputLinks)):
-                    d_netH_wi = hidden_neuron.inputLinks[hidden_weight_i].value
-                    d_E_wi = d_E_netH * d_netH_wi
-                    hidden_neuron.weights[hidden_weight_i] -= LEARNING_RATE * d_E_wi
-
-            for weight_i in range(len(output_neuron.inputLinks)):
-                d_netO_wi = output_neuron.inputLinks[weight_i].value
-                d_E_wi = d_E_netO * d_netO_wi
-                # print(f"d_n1_w{i}: {d_n1_wi}")
-                # print(f"d_E_w{i}: {d_E_wi}")
-                # print(f"Delta: {-LEARNING_RATE * d_E_wi}")
-                output_neuron.weights[weight_i] -= LEARNING_RATE * d_E_wi
-
-        mean_error = np.mean(errors)
+        # taking one sample for backpropagation
+        if RANDOM_SAMPLE:
+            sample_index = random.randrange(0, len(weights))
+            backpropagate(sample_index, genders, currentNetwork)
 
         # updating minimal error
+        mean_error = np.mean(errors)
         if(mean_error < minimal_error):
             minimal_error = mean_error
 
         # outputting results
-        output(iteration, minimal_error, currentNetwork)
+        output(iteration, mean_error, currentNetwork)
 
         if check_stop_conditions(minimal_error, weights):
             break
