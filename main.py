@@ -16,11 +16,11 @@ ITERATIONS = 100000             # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
-HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
+HIDDEN_LAYER_NEURONS = 8        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
 
 # backpropagation settings
-LEARNING_RATE = 0.0001          # learning rate
+LEARNING_RATE = 0.001           # learning rate
 RANDOM_SAMPLE = False           # take one random sample every generation instead of all samples
 
 # output settings
@@ -72,12 +72,12 @@ def calculate_errors(weights, heights, genders, generation):
     Calculates errors on all samples.
     """
     network_errors_mean = [0] * POPULATION_SIZE
-    for i in range(len(generation)):
-        currentNetwork = generation[i]
-        for j in range(len(weights)):
-            error = calculate_sample_error(j, weights, heights, genders, currentNetwork)
-            network_errors_mean[i] += error
-        network_errors_mean[i] /= len(weights)
+    for network_i in range(1, len(generation)):
+        currentNetwork = generation[network_i]
+        for sample_i in range(len(weights)):
+            error = calculate_sample_error(sample_i, weights, heights, genders, currentNetwork)
+            network_errors_mean[network_i] += error
+        network_errors_mean[network_i] /= len(weights)
     return network_errors_mean
 
 
@@ -93,7 +93,7 @@ def render(best_network):
     points_queue.put(points)
 
 
-def output(iteration, minimal_error, network):
+def output(iteration, minimal_error, color, network):
 
     # rendering results in a separate window
     if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0 or iteration == ITERATIONS - 1):
@@ -104,7 +104,7 @@ def output(iteration, minimal_error, network):
         print("Generation " + str(iteration + 1) + " " + str(minimal_error), end="\r")
 
     # adding point to the plot
-    plot_queue.put(minimal_error)
+    plot_queue.put((minimal_error, color))
 
 
 def check_stop_conditions(minimal_error, weights):
@@ -163,7 +163,106 @@ def backpropagate(sample_i, genders, network):
     output_neuron.bias -= LEARNING_RATE * d_E_netO
 
 
-def train_random(weights, heights, genders):
+# def train_random(weights, heights, genders):
+#     """Trains neural network"""
+
+#     # creating networks
+#     generation = []
+#     for i in range(POPULATION_SIZE):
+#         new_network = network.NeuralNetwork(HIDDEN_LAYERS, HIDDEN_LAYER_NEURONS)
+#         generation.append(new_network)
+
+#     # minimal error starts at 1.0 at first and gets smaller later
+#     minimal_error = 1.0
+
+#     for iteration in range(ITERATIONS):
+
+#         # calculating errors
+#         network_errors_mean = calculate_errors(weights, heights, genders, generation)
+
+#         # sorting list
+#         for i in range(POPULATION_SIZE):
+#             generation[i].error = network_errors_mean[i]
+#         generation.sort(key=lambda x: x.error)
+
+#         # updating minimal error
+#         if(generation[0].error < minimal_error):
+#             minimal_error = generation[0].error
+
+#         # creating new generation
+#         generation = create_generation(generation[0])
+
+#         # outputting results
+#         output(iteration, minimal_error, generation[0])
+
+#         if check_stop_conditions(minimal_error, weights):
+#             break
+
+#     print()
+
+#     # returning best network
+#     return generation[0]
+
+
+# def train_backprop(weights, heights, genders):
+#     """Trains neural network"""
+
+#     # creating networks
+#     generation = []
+#     for i in range(POPULATION_SIZE):
+#         new_network = network.NeuralNetwork(HIDDEN_LAYERS, HIDDEN_LAYER_NEURONS)
+#         generation.append(new_network)
+
+#     # keeping best network
+#     best_network = generation[0].copy()
+
+#     # minimal error starts at 1.0 at first and gets smaller later
+#     minimal_error = 1.0
+
+#     for iteration in range(ITERATIONS):
+
+#         network_errors_mean = []
+
+#         for network_i in range(len(generation)):
+
+#             if network_i == 0:
+
+#                 for sample_i in range(len(weights)):
+
+#                     # calculating error
+#                     network_error = calculate_sample_error(sample_i, weights, heights, genders, generation[0])
+#                     network_errors_mean.append(network_error)
+
+#                     # backpropagation
+#                     if not RANDOM_SAMPLE:
+#                         backpropagate(sample_i, genders, generation[0])
+
+#                 # taking one sample for backpropagation
+#                 if RANDOM_SAMPLE:
+#                     sample_index = random.randrange(0, len(weights))
+#                     backpropagate(sample_index, genders, generation[0])
+
+#             else:
+
+#                 # calculating errors
+#                 network_errors_mean = calculate_errors(weights, heights, genders, generation)
+
+#         # updating minimal error
+#         if(network_errors_mean < minimal_error):
+#             minimal_error = mean_error
+
+#         # outputting results
+#         output(iteration, mean_error, currentNetwork)
+
+#         if check_stop_conditions(minimal_error, weights):
+#             break
+
+#     print()
+
+#     # returning best network
+#     return currentNetwork
+
+def train_backprop(weights, heights, genders):
     """Trains neural network"""
 
     # creating networks
@@ -177,13 +276,39 @@ def train_random(weights, heights, genders):
 
     for iteration in range(ITERATIONS):
 
-        # calculating errors
+        # calculating errors of other networks
         network_errors_mean = calculate_errors(weights, heights, genders, generation)
+
+        # calculating errors of first network
+        errors = []
+        for sample_i in range(len(weights)):
+
+            # calculating error
+            network_error = calculate_sample_error(sample_i, weights, heights, genders, generation[0])
+            errors.append(network_error)
+
+            # backpropagation
+            if not RANDOM_SAMPLE:
+                backpropagate(sample_i, genders, generation[0])
+
+        # taking one sample for backpropagation
+        if RANDOM_SAMPLE:
+            sample_index = random.randrange(0, len(weights))
+            backpropagate(sample_index, genders, generation[0])
+
+        network_errors_mean[0] = np.mean(errors)
+
+        backpropagated_network = generation[0]
 
         # sorting list
         for i in range(POPULATION_SIZE):
             generation[i].error = network_errors_mean[i]
         generation.sort(key=lambda x: x.error)
+
+        if generation[0] == backpropagated_network:
+            color = (0, 0.75, 0, 1)
+        else:
+            color = (1, 0, 0, 1)
 
         # updating minimal error
         if(generation[0].error < minimal_error):
@@ -193,7 +318,7 @@ def train_random(weights, heights, genders):
         generation = create_generation(generation[0])
 
         # outputting results
-        output(iteration, minimal_error, generation[0])
+        output(iteration, minimal_error, color, generation[0])
 
         if check_stop_conditions(minimal_error, weights):
             break
@@ -202,51 +327,6 @@ def train_random(weights, heights, genders):
 
     # returning best network
     return generation[0]
-
-
-def train_backprop(weights, heights, genders):
-    """Trains neural network"""
-
-    # creating network
-    currentNetwork = network.NeuralNetwork(HIDDEN_LAYERS, HIDDEN_LAYER_NEURONS)
-
-    # minimal error starts at 1.0 at first and gets smaller later
-    minimal_error = 1.0
-
-    for iteration in range(ITERATIONS):
-
-        errors = []
-
-        for sample_i in range(len(weights)):
-
-            # calculating error
-            network_error = calculate_sample_error(sample_i, weights, heights, genders, currentNetwork)
-            errors.append(network_error)
-
-            # backpropagation
-            if not RANDOM_SAMPLE:
-                backpropagate(sample_i, genders, currentNetwork)
-
-        # taking one sample for backpropagation
-        if RANDOM_SAMPLE:
-            sample_index = random.randrange(0, len(weights))
-            backpropagate(sample_index, genders, currentNetwork)
-
-        # updating minimal error
-        mean_error = np.mean(errors)
-        if(mean_error < minimal_error):
-            minimal_error = mean_error
-
-        # outputting results
-        output(iteration, mean_error, currentNetwork)
-
-        if check_stop_conditions(minimal_error, weights):
-            break
-
-    print()
-
-    # returning best network
-    return currentNetwork
 
 
 # main function
@@ -281,22 +361,22 @@ if __name__ == '__main__':
         ["Tall light man 3", 175, 30, "M"],
         ["Tall light man 4", 169, 10, "M"],
 
-        # ["1", 10, 148, "F"],
-        # ["1", 15, 126, "F"],
-        # ["1", 16, 131, "F"],
-        # ["1", 20, 143, "F"],
-        # ["1", 30, 28, "F"],
-        # ["1", 40, 70, "F"],
-        # ["1", 50, 179, "F"],
-        # ["1", 60, 62, "F"],
-        # ["1", 70, 50, "F"],
-        # ["1", 80, 65, "F"],
-        # ["1", 90, 32, "F"],
-        # ["2", 19, 156, "M"],
-        # ["2", 120, 58, "M"],
-        # ["2", 93, 22, "M"],
-        # ["2", 191, 120, "M"],
-        # ["2", 146, 135, "M"],
+        ["1", 10, 148, "F"],
+        ["1", 15, 126, "F"],
+        ["1", 16, 131, "F"],
+        ["1", 20, 143, "F"],
+        ["1", 30, 28, "F"],
+        ["1", 40, 70, "F"],
+        ["1", 50, 179, "F"],
+        ["1", 60, 62, "F"],
+        ["1", 70, 50, "F"],
+        ["1", 80, 65, "F"],
+        ["1", 90, 32, "F"],
+        ["2", 19, 156, "M"],
+        ["2", 120, 58, "M"],
+        ["2", 93, 22, "M"],
+        ["2", 191, 120, "M"],
+        ["2", 146, 135, "M"],
 
     ]
 

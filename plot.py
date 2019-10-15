@@ -1,6 +1,7 @@
 import multiprocessing
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib import collections as mc
 
 
 MAX_POINTS = 200     # limiting amount of displayed points for performance purposes
@@ -20,10 +21,19 @@ def start(queue):
 fig, ax = plt.subplots()
 xdata, ydata = [], []
 ln, = plt.plot([], [])
+colors = []
 
 
 def init():
     ax.set_ylim(0, 1)
+
+
+def get_points():
+    lines = []
+    for i in range(1, len(xdata)):
+        line = [(xdata[i], ydata[i]), (xdata[i - 1], ydata[i - 1])]
+        lines.append(line)
+    return lines
 
 
 def update(frame):
@@ -42,9 +52,15 @@ def update(frame):
                 ydata = ydata[0::DECREASE_FACTOR]
                 add_every *= DECREASE_FACTOR
 
+            queue_data = plot_queue.get()
             xdata.append(max_index)
-            ydata.append(plot_queue.get())
-            ln.set_data(xdata, ydata)
+            ydata.append(queue_data[0])
+            colors.append(queue_data[1])
+            if frame > 1:
+                lc = mc.LineCollection(get_points(), colors=colors)
+                ax.clear()
+                ax.add_collection(lc)
+            # ln.set_data(xdata, ydata)
 
         else:
             plot_queue.get()
