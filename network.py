@@ -12,6 +12,7 @@ network_id = 0
 
 CLIP_VALUES = False             # limit weights and biases to 0.0..1.0
 MAX_NEURONS = 100               # needed for memory allocation on CUDA
+INITIAL_WEIGHTS = 1.0           # initializes all weights with this value
 
 
 def sigmoid_exp(x):
@@ -35,6 +36,13 @@ def sigmoid_tanh_plain(x):
     non-CUDA version of sigmoid_tanh
     """
     return (math.tanh(x) + 1) / 2
+
+
+def sigmoid_tanh_plain_D(x):
+    """
+    Derivative of sigmoid.
+    """
+    return tanh_D(x) / 2
 
 
 def tanh_D(value):
@@ -62,7 +70,7 @@ class _Neuron:
         """
         Connects this neuron to another neuron.
         """
-        neuron.weights.append(0)
+        neuron.weights.append(INITIAL_WEIGHTS)
         neuron.inputCount += 1
         neuron.inputLinks.append(self)
         self.outputLinks.append(neuron)
@@ -92,6 +100,7 @@ class Neuron(_Neuron):
         self.weights = weights.copy()
         self.bias = bias
         self.value = 0
+        self.net = 0
 
     def feedforward(self):
         """
@@ -181,6 +190,7 @@ class NeuralNetwork:
         # creating output neuron
         outputNeuron = Neuron("o1")
         outputNeuron.function = sigmoid_tanh_plain
+        outputNeuron.derivative = sigmoid_tanh_plain_D
         self.addHiddenNeuron(outputNeuron)
 
         # connecting neurons in the last hidden layer to the output neuron

@@ -12,12 +12,13 @@ import plot
 # genetic algorithm settings
 POPULATION_SIZE = 10            # amount of neural networks in each generation
 MAX_MUTATION = 1                # limits mutation of weights to that amount at once
-ITERATIONS = 1000000            # generation limit
+ITERATIONS = 100000             # generation limit
 MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 
 # neural network settings
 HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
-HIDDEN_LAYERS = 2               # number of hidden layers
+HIDDEN_LAYERS = 1               # number of hidden layers
+LEARNING_RATE = 0.01            # backpropagation learning rate
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
@@ -60,7 +61,7 @@ def calculate_sample_error(sample_index, weights, heights, genders, network):
     """
     result = network.feedforward([weights[sample_index], heights[sample_index]])[0]
     error = result - (0 if genders[sample_index] == "M" else 1)
-    return error
+    return error * error / 2  # squared error, division is needed so after differentiation it cancels out
 
 
 def calculate_errors(weights, heights, genders, generation):
@@ -72,7 +73,7 @@ def calculate_errors(weights, heights, genders, generation):
         currentNetwork = generation[i]
         for j in range(len(weights)):
             error = calculate_sample_error(j, weights, heights, genders, currentNetwork)
-            network_errors_mean[i] += error * error / 2  # squared error, division is needed so after differentiation it cancels out
+            network_errors_mean[i] += error
         network_errors_mean[i] /= len(weights)
     return network_errors_mean
 
@@ -89,11 +90,11 @@ def render(best_network):
     points_queue.put(points)
 
 
-def output(iteration, minimal_error, generation):
+def output(iteration, minimal_error, network):
 
     # rendering results in a separate window
     if(iteration % RENDER_EVERY == 0 or minimal_error == 0.0 or iteration == ITERATIONS - 1):
-        render(generation[0])
+        render(network)
 
     # printing gen number to console
     if PRINT_GEN_NUMBER:
@@ -129,7 +130,7 @@ def create_generation(best_network):
     return new_generation
 
 
-def train(weights, heights, genders):
+def train_random(weights, heights, genders):
     """Trains neural network"""
 
     # creating networks
@@ -159,7 +160,7 @@ def train(weights, heights, genders):
         generation = create_generation(generation[0])
 
         # outputting results
-        output(iteration, minimal_error, generation)
+        output(iteration, minimal_error, generation[0])
 
         if check_stop_conditions(minimal_error, weights):
             break
@@ -168,6 +169,67 @@ def train(weights, heights, genders):
 
     # returning best network
     return generation[0]
+
+
+def train_backprop(weights, heights, genders):
+    """Trains neural network"""
+
+    # creating network
+    currentNetwork = network.NeuralNetwork(HIDDEN_LAYERS, HIDDEN_LAYER_NEURONS)
+
+    # minimal error starts at 1.0 at first and gets smaller later
+    minimal_error = 1.0
+
+    for iteration in range(ITERATIONS):
+
+        errors = []
+
+        for sample_i in range(len(weights)):
+
+            # choosing sample
+            # sample_index = random.randint(0, len(weights) - 1)
+
+            # calculating error
+            network_error = calculate_sample_error(sample_i, weights, heights, genders, currentNetwork)
+            errors.append(network_error)
+
+            o1_neuron = currentNetwork.layers[2][0]
+            target = (0 if genders[sample_i] == "M" else 1)
+            outp = o1_neuron.value
+            net = o1_neuron.net
+            d_E_o1 = outp - target
+            d_o1_n1 = o1_neuron.derivative(net)
+            # print(f"net: {net}")
+            # print(f"outp: {outp}")
+            # print(f"target: {target}")
+            # print(f"d_E_o1: {d_E_o1}")
+            # print(f"d_o1_n1: {d_o1_n1}")
+            for i in range(len(o1_neuron.inputLinks)):
+                d_n1_wi = o1_neuron.inputLinks[i].value
+                d_E_wi = d_E_o1 * d_o1_n1 * d_n1_wi
+                # print(f"d_n1_w{i}: {d_n1_wi}")
+                # print(f"d_E_w{i}: {d_E_wi}")
+                # print(f"Delta: {-LEARNING_RATE * d_E_wi}")
+                o1_neuron.weights[i] -= LEARNING_RATE * d_E_wi
+            # print(f"weights[0]: {o1_neuron.weights[0]}")
+            # print()
+
+        mean_error = np.mean(errors)
+
+        # updating minimal error
+        if(mean_error < minimal_error):
+            minimal_error = mean_error
+
+        # outputting results
+        output(iteration, minimal_error, currentNetwork)
+
+        if check_stop_conditions(minimal_error, weights):
+            break
+
+    print()
+
+    # returning best network
+    return currentNetwork
 
 
 # main function
@@ -270,7 +332,7 @@ if __name__ == '__main__':
     time1 = time.time()
 
     # training
-    best_network = train(list(df["Weight"]), list(df["Height"]), list(df["Gender"]))
+    best_network = train_backprop(list(df["Weight"]), list(df["Height"]), list(df["Gender"]))
 
     print()
 
