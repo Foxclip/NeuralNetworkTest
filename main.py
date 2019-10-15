@@ -20,8 +20,8 @@ HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
 
 # backpropagation settings
-LEARNING_RATE = 0.01            # learning rate
-RANDOM_SAMPLE = True            # take one random sample every generation instead of all samples
+LEARNING_RATE = 0.0001          # learning rate
+RANDOM_SAMPLE = False           # take one random sample every generation instead of all samples
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
@@ -153,12 +153,14 @@ def backpropagate(sample_i, genders, network):
             d_netH_wi = hidden_neuron.inputLinks[hidden_weight_i].value
             d_E_wi = d_E_netH * d_netH_wi
             hidden_neuron.weights[hidden_weight_i] -= LEARNING_RATE * d_E_wi
+        hidden_neuron.bias -= LEARNING_RATE * d_E_netH
 
     # updating output neuron weights
     for weight_i in range(len(output_neuron.inputLinks)):
         d_netO_wi = output_neuron.inputLinks[weight_i].value
         d_E_wi = d_E_netO * d_netO_wi
         output_neuron.weights[weight_i] -= LEARNING_RATE * d_E_wi
+    output_neuron.bias -= LEARNING_RATE * d_E_netO
 
 
 def train_random(weights, heights, genders):
@@ -266,18 +268,18 @@ if __name__ == '__main__':
         ["Short man 2", 70, 25, "M"],
         ["Short man 3", 80, 28, "M"],
         ["Short man 4", 90, 50, "M"],
-        # ["Short heavy man 1", 75, 150, "M"],
-        # ["Short heavy man 2", 70, 125, "M"],
-        # ["Short heavy man 3", 80, 134, "M"],
-        # ["Short heavy man 4", 90, 128, "M"],
-        # ["Short woman 1", 49, 78, "F"],
-        # ["Short woman 2", 58, 74, "F"],
-        # ["Short woman 3", 32, 90, "F"],
-        # ["Short woman 4", 56, 66, "F"],
-        # ["Tall light man 1", 180, 23, "M"],
-        # ["Tall light man 2", 170, 20, "M"],
-        # ["Tall light man 3", 175, 30, "M"],
-        # ["Tall light man 4", 169, 10, "M"],
+        ["Short heavy man 1", 75, 150, "M"],
+        ["Short heavy man 2", 70, 125, "M"],
+        ["Short heavy man 3", 80, 134, "M"],
+        ["Short heavy man 4", 90, 128, "M"],
+        ["Short woman 1", 49, 78, "F"],
+        ["Short woman 2", 58, 74, "F"],
+        ["Short woman 3", 32, 90, "F"],
+        ["Short woman 4", 56, 66, "F"],
+        ["Tall light man 1", 180, 23, "M"],
+        ["Tall light man 2", 170, 20, "M"],
+        ["Tall light man 3", 175, 30, "M"],
+        ["Tall light man 4", 169, 10, "M"],
 
         # ["1", 10, 148, "F"],
         # ["1", 15, 126, "F"],

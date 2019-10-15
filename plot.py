@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 
-MAX_POINTS = 1000     # limiting amount of displayed points for performance purposes
-DECREASE_FACTOR = 10  # if MAX_POINTS is reached, point list is shrunk by this factor
+MAX_POINTS = 200     # limiting amount of displayed points for performance purposes
+DECREASE_FACTOR = 2  # if MAX_POINTS is reached, point list is shrunk by this factor
 
 max_index = 1         # index of next point
 add_every = 1         # add point every x frames
