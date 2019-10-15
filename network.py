@@ -12,6 +12,7 @@ network_id = 0
 
 CLIP_VALUES = False             # limit weights and biases to 0.0..1.0
 MAX_NEURONS = 100               # needed for memory allocation on CUDA
+RANDOM_WEIGHTS = True           # initialize weights with random values
 INITIAL_WEIGHTS = 1.0           # initializes all weights with this value
 
 
@@ -70,7 +71,11 @@ class _Neuron:
         """
         Connects this neuron to another neuron.
         """
-        neuron.weights.append(INITIAL_WEIGHTS)
+        if RANDOM_WEIGHTS:
+            wgt = random.uniform(-1.0, 1.0)
+        else:
+            wgt = INITIAL_WEIGHTS
+        neuron.weights.append(wgt)
         neuron.inputCount += 1
         neuron.inputLinks.append(self)
         self.outputLinks.append(neuron)

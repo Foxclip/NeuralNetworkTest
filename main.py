@@ -18,7 +18,7 @@ MINIMAL_ERROR_SHUTDOWN = False  # stop if error is small enough
 # neural network settings
 HIDDEN_LAYER_NEURONS = 3        # number of neurons in the hidden layer
 HIDDEN_LAYERS = 1               # number of hidden layers
-LEARNING_RATE = 0.01            # backpropagation learning rate
+LEARNING_RATE = 0.001           # backpropagation learning rate
 
 # output settings
 PRINT_GEN_NUMBER = True         # print generation number every generation
@@ -193,26 +193,37 @@ def train_backprop(weights, heights, genders):
             network_error = calculate_sample_error(sample_i, weights, heights, genders, currentNetwork)
             errors.append(network_error)
 
-            o1_neuron = currentNetwork.layers[2][0]
+            output_neuron = currentNetwork.layers[2][0]
             target = (0 if genders[sample_i] == "M" else 1)
-            outp = o1_neuron.value
-            net = o1_neuron.net
-            d_E_o1 = outp - target
-            d_o1_n1 = o1_neuron.derivative(net)
+            d_E_outO = output_neuron.value - target
+            d_outO_netO = output_neuron.derivative(output_neuron.net)
+            d_E_netO = d_E_outO * d_outO_netO
             # print(f"net: {net}")
             # print(f"outp: {outp}")
             # print(f"target: {target}")
             # print(f"d_E_o1: {d_E_o1}")
             # print(f"d_o1_n1: {d_o1_n1}")
-            for i in range(len(o1_neuron.inputLinks)):
-                d_n1_wi = o1_neuron.inputLinks[i].value
-                d_E_wi = d_E_o1 * d_o1_n1 * d_n1_wi
+            # print(f"weights[0]: {o1_neuron.weights[0]}")
+            # print()
+
+            for hidden_i in range(len(currentNetwork.layers[1])):
+                hidden_neuron = currentNetwork.layers[1][hidden_i]
+                d_netO_outH = output_neuron.weights[hidden_i]
+                d_outH_netH = hidden_neuron.derivative(hidden_neuron.net)
+                d_E_outH = d_E_netO * d_netO_outH
+                d_E_netH = d_E_outH * d_outH_netH
+                for hidden_weight_i in range(len(hidden_neuron.inputLinks)):
+                    d_netH_wi = hidden_neuron.inputLinks[hidden_weight_i].value
+                    d_E_wi = d_E_netH * d_netH_wi
+                    hidden_neuron.weights[hidden_weight_i] -= LEARNING_RATE * d_E_wi
+
+            for weight_i in range(len(output_neuron.inputLinks)):
+                d_netO_wi = output_neuron.inputLinks[weight_i].value
+                d_E_wi = d_E_netO * d_netO_wi
                 # print(f"d_n1_w{i}: {d_n1_wi}")
                 # print(f"d_E_w{i}: {d_E_wi}")
                 # print(f"Delta: {-LEARNING_RATE * d_E_wi}")
-                o1_neuron.weights[i] -= LEARNING_RATE * d_E_wi
-            # print(f"weights[0]: {o1_neuron.weights[0]}")
-            # print()
+                output_neuron.weights[weight_i] -= LEARNING_RATE * d_E_wi
 
         mean_error = np.mean(errors)
 
@@ -238,19 +249,19 @@ if __name__ == '__main__':
     # setting data
     data = [
 
-        # ["Alice", 123, 65, "F"],
-        # ["Bob", 160, 72, "M"],
-        # ["Charlie", 152, 70, "M"],
-        # ["Diana", 120, 60, "F"],
-        # ["Eugene", 164, 69, "M"],
-        # ["Fiona", 129, 65, "F"],
-        # ["Garreth", 177, 75, "M"],
-        # ["Heather", 135, 55, "F"],
+        ["Alice", 123, 65, "F"],
+        ["Bob", 160, 72, "M"],
+        ["Charlie", 152, 70, "M"],
+        ["Diana", 120, 60, "F"],
+        ["Eugene", 164, 69, "M"],
+        ["Fiona", 129, 65, "F"],
+        ["Garreth", 177, 75, "M"],
+        ["Heather", 135, 55, "F"],
 
-        # ["Short man 1", 75, 30, "M"],
-        # ["Short man 2", 70, 25, "M"],
-        # ["Short man 3", 80, 28, "M"],
-        # ["Short man 4", 90, 50, "M"],
+        ["Short man 1", 75, 30, "M"],
+        ["Short man 2", 70, 25, "M"],
+        ["Short man 3", 80, 28, "M"],
+        ["Short man 4", 90, 50, "M"],
         # ["Short heavy man 1", 75, 150, "M"],
         # ["Short heavy man 2", 70, 125, "M"],
         # ["Short heavy man 3", 80, 134, "M"],
@@ -289,18 +300,18 @@ if __name__ == '__main__':
     #     gender = "M" if random.random() < 0.5 else "F"
     #     data.append([str(i), random.random()**3 * 200, random.uniform(0, 200), gender])
 
-    for i in range(500):
-        angle = random.random() * 360
-        radius = random.uniform(50, 100)
-        x = math.cos(angle * math.pi / 180) * radius + 100
-        y = math.sin(angle * math.pi / 180) * radius + 100
-        data.append([str(i), x, y, "M"])
-    for i in range(200):
-        angle = random.random() * 360
-        radius = random.uniform(10, 50)
-        x = math.cos(angle * math.pi / 180) * radius + 100
-        y = math.sin(angle * math.pi / 180) * radius + 100
-        data.append([str(i), x, y, "F"])
+    # for i in range(500):
+    #     angle = random.random() * 360
+    #     radius = random.uniform(50, 100)
+    #     x = math.cos(angle * math.pi / 180) * radius + 100
+    #     y = math.sin(angle * math.pi / 180) * radius + 100
+    #     data.append([str(i), x, y, "M"])
+    # for i in range(200):
+    #     angle = random.random() * 360
+    #     radius = random.uniform(10, 50)
+    #     x = math.cos(angle * math.pi / 180) * radius + 100
+    #     y = math.sin(angle * math.pi / 180) * radius + 100
+    #     data.append([str(i), x, y, "F"])
 
     # putting data in pandas DataFrame
     df = pd.DataFrame(data, columns=["Name", "Weight", "Height", "Gender"])
